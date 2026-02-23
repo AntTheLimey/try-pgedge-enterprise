@@ -1,0 +1,20 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Vagrant (stretch goal)
+vagrant/.vagrant/
+
+# Runtime
+*.log
+*.pid
+
+# Node (only if htmlhint/eslint added later)
+node_modules/
