@@ -11,12 +11,36 @@
 ### Common Anti-Patterns to Flag
 
 **Bash:**
-- Unquoted variables (`echo $VAR` instead of `echo "$VAR"`)
-- Missing error handling (`cd some_dir` instead of `cd some_dir || exit 1`)
-- Using `[` instead of `[[` for conditionals
-- Missing `set -euo pipefail`
+
+```bash
+# BAD: Unquoted variable
+echo $VAR
+# GOOD:
+echo "$VAR"
+
+# BAD: Missing error handling
+cd some_dir
+# GOOD:
+cd some_dir || exit 1
+
+# BAD: Using [ instead of [[
+if [ "$x" = "y" ]; then
+# GOOD:
+if [[ "$x" = "y" ]]; then
+```
 
 **JavaScript:**
-- Using innerHTML without escaping (XSS risk)
-- No error handling on fetch calls
-- Missing null/undefined checks on DOM elements
+
+```javascript
+// BAD: innerHTML without escaping
+el.innerHTML = userInput;
+// GOOD:
+el.textContent = userInput;
+
+// BAD: No error handling on fetch
+const data = await fetch("catalog.json");
+// GOOD:
+const resp = await fetch("catalog.json");
+if (!resp.ok) throw new Error(`Failed: ${resp.status}`);
+const data = await resp.json();
+```

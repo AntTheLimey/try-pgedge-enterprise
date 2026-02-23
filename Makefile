@@ -19,29 +19,7 @@ lint:
 
 ## Validate catalog.json structure (categories, platforms, meta_packages)
 validate:
-	@echo "Validating catalog.json structure..."
-	@python3 -c "\
-import json, sys; \
-d = json.load(open('package-catalog/catalog.json')); \
-errors = []; \
-if 'categories' not in d: errors.append('missing categories'); \
-if 'platforms' not in d: errors.append('missing platforms'); \
-if 'meta_packages' not in d: errors.append('missing meta_packages'); \
-if 'pg_versions' not in d: errors.append('missing pg_versions'); \
-for cat in d.get('categories', []): \
-    for pkg in cat.get('packages', []): \
-        if not pkg.get('name'): errors.append(f'package missing name in {cat[\"name\"]}'); \
-        if not pkg.get('pg_versions'): errors.append(f'{pkg.get(\"name\",\"?\")} missing pg_versions'); \
-for key, plat in d.get('platforms', {}).items(): \
-    if not plat.get('install_pattern'): errors.append(f'{key} missing install_pattern'); \
-if errors: \
-    print('Validation errors:'); \
-    [print(f'  - {e}') for e in errors]; \
-    sys.exit(1); \
-cats = len(d['categories']); \
-pkgs = sum(len(c['packages']) for c in d['categories']); \
-plats = len(d['platforms']); \
-print(f'✓ catalog.json valid: {cats} categories, {pkgs} packages, {plats} platforms')"
+	@python3 scripts/validate_catalog.py
 
 ## Run all quality checks
 test-all: lint validate
