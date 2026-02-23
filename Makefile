@@ -8,7 +8,7 @@ all: test-all
 ## Lint all shell scripts with shellcheck and validate JSON
 lint:
 	@echo "Linting shell scripts..."
-	@shellcheck $(SHELL_FILES)
+	@shellcheck -x -P SCRIPTDIR $(SHELL_FILES)
 	@echo "✓ Shell scripts OK"
 	@echo ""
 	@echo "Validating JSON..."
