@@ -8,8 +8,8 @@ setup_trap
 
 # ── Configurable variables ───────────────────────────────────────────────────
 
-CP_IMAGE="${CP_IMAGE:-pgedge/control-plane:latest}"
-CP_CONTAINER="pgedge-cp"
+CP_IMAGE="${CP_IMAGE:-ghcr.io/pgedge/control-plane}"
+CP_CONTAINER="host-1"
 CP_PORT="${CP_PORT:-3000}"
 CP_DATA="${CP_DATA:-$HOME/pgedge/control-plane}"
 
@@ -49,10 +49,15 @@ start_control_plane() {
   info "Image pulled: $CP_IMAGE"
 
   start_spinner "Starting Control Plane..."
-  docker run -d --name "$CP_CONTAINER" \
+  docker run --detach \
+    --env PGEDGE_HOST_ID="${CP_CONTAINER}" \
+    --env PGEDGE_DATA_DIR="${CP_DATA}" \
+    --volume "${CP_DATA}":"${CP_DATA}" \
+    --volume /var/run/docker.sock:/var/run/docker.sock \
     --network host \
-    -v "$CP_DATA":/data \
-    "$CP_IMAGE" >/dev/null 2>&1
+    --name "${CP_CONTAINER}" \
+    "$CP_IMAGE" \
+    run >/dev/null 2>&1
   stop_spinner
   info "Container started: $CP_CONTAINER"
 }
@@ -61,7 +66,6 @@ wait_for_healthy() {
   start_spinner "Waiting for Control Plane API..."
   local retries=30
   while [[ "$retries" -gt 0 ]]; do
-    # NOTE: API endpoint needs validation against CP v0.6 API
     if curl -sf "http://localhost:${CP_PORT}/v1/cluster/init" >/dev/null 2>&1; then
       stop_spinner
       info "Control Plane running on http://localhost:${CP_PORT}"
@@ -76,10 +80,28 @@ wait_for_healthy() {
 }
 
 cleanup() {
+  # Delete any databases first (async, best-effort)
+  curl -sf -X DELETE "http://localhost:${CP_PORT}/v1/databases/example" >/dev/null 2>&1 || true
+  sleep 3
+
   if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${CP_CONTAINER}$"; then
     info "Stopping and removing Control Plane container..."
-    docker rm -f "$CP_CONTAINER" >/dev/null 2>&1
+    docker stop "$CP_CONTAINER" >/dev/null 2>&1 || true
+    docker rm "$CP_CONTAINER" >/dev/null 2>&1 || true
     info "Container removed."
+  fi
+
+  # Remove database containers managed by CP
+  local db_containers
+  db_containers=$(docker ps -a --filter "label=pgedge.database.id" --format '{{.Names}}' 2>/dev/null || true)
+  if [[ -n "$db_containers" ]]; then
+    info "Removing database containers..."
+    echo "$db_containers" | xargs -r docker rm -f >/dev/null 2>&1 || true
+  fi
+
+  if [[ -d "$CP_DATA" ]]; then
+    info "Removing data directory: $CP_DATA"
+    rm -rf "$CP_DATA"
   fi
 }
 
