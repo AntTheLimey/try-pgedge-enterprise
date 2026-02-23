@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pgEdge Enterprise Postgres — Package Catalog</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --navy: #0D2137;
+      --teal: #2DD4BF;
+      --teal-dark: #14b8a6;
+      --code-bg: #0f172a;
+      --code-text: #e2e8f0;
+      --green: #22c55e;
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    header {
+      background: var(--navy);
+      color: white;
+      padding: 3rem 2rem 2.5rem;
+      text-align: center;
+    }
+    header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+    header .subtitle {
+      color: #94a3b8;
+      font-size: 1.1rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    main { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+
+    .zone { margin-bottom: 2.5rem; }
+    .zone h2 { font-size: 1.3rem; margin-bottom: 0.75rem; }
+    .zone-desc {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Zone 1: Selector */
+    .selector-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+    .selector-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+    .selector-group select {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: var(--surface);
+      cursor: pointer;
+    }
+    .selector-group select:focus {
+      outline: none;
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15);
+    }
+
+    /* Zone 2: Commands */
+    .commands-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .copy-btn:hover { border-color: var(--teal); color: var(--teal-dark); }
+    .copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+    #install-commands {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 1.5rem;
+      border-radius: var(--radius);
+      overflow-x: auto;
+      font-size: 0.9rem;
+      line-height: 1.7;
+    }
+    #install-commands code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+    #install-commands .comment { color: #64748b; }
+
+    /* Zone 3: Catalog */
+    .category {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 0.75rem;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .category-header {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      user-select: none;
+    }
+    .category-header:hover { background: #f1f5f9; }
+    .category-header .count {
+      color: var(--text-muted);
+      font-weight: 400;
+      font-size: 0.85rem;
+    }
+    .category-header .arrow { transition: transform 0.2s; }
+    .category.open .category-header .arrow { transform: rotate(90deg); }
+
+    .category-body { display: none; border-top: 1px solid var(--border); }
+    .category.open .category-body { display: block; }
+
+    .pkg-row {
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .pkg-row:last-of-type { border-bottom: none; }
+    .pkg-row:hover { background: #f8fafc; }
+    .pkg-name { font-weight: 500; font-size: 0.95rem; }
+    .pkg-desc { color: var(--text-muted); font-size: 0.85rem; }
+    .pkg-meta { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
+    .pkg-badges { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+    .badge {
+      display: inline-block;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      background: #f1f5f9;
+      color: var(--text-muted);
+    }
+    .badge.included { background: #ecfdf5; color: #059669; }
+
+    .pkg-detail {
+      display: none;
+      padding: 0.5rem 1rem 0.75rem;
+      background: var(--code-bg);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.85rem;
+      color: var(--code-text);
+      border-bottom: 1px solid var(--border);
+    }
+    .pkg-row.expanded + .pkg-detail { display: block; }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    footer a { color: var(--teal-dark); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* Responsive: stack selectors on mobile */
+    @media (max-width: 640px) {
+      .selector-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      header { padding: 2rem 1rem 1.5rem; }
+      header h1 { font-size: 1.5rem; }
+    }
+    @media (max-width: 400px) {
+      .selector-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>pgEdge Enterprise Postgres</h1>
+    <p class="subtitle">Browse the full package ecosystem. Pick your platform, copy the commands, start building.</p>
+  </header>
+
+  <main>
+    <!-- Zone 1: Interactive Selector -->
+    <section id="selector" class="zone">
+      <h2>Configure Your Install</h2>
+      <div class="selector-grid">
+        <div class="selector-group">
+          <label for="platform">Platform</label>
+          <select id="platform"></select>
+        </div>
+        <div class="selector-group">
+          <label for="arch">Architecture</label>
+          <select id="arch"></select>
+        </div>
+        <div class="selector-group">
+          <label for="pg-version">PostgreSQL</label>
+          <select id="pg-version"></select>
+        </div>
+        <div class="selector-group">
+          <label for="meta-package">Package</label>
+          <select id="meta-package"></select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Zone 2: Generated Commands -->
+    <section id="commands" class="zone">
+      <div class="commands-header">
+        <h2>Install Commands</h2>
+        <button id="copy-all" class="copy-btn" title="Copy all commands">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          <span>Copy All</span>
+        </button>
+      </div>
+      <pre id="install-commands"><code></code></pre>
+    </section>
+
+    <!-- Zone 3: Package Catalog -->
+    <section id="catalog" class="zone">
+      <h2>Package Catalog</h2>
+      <p class="zone-desc">Click a category to expand. Click a package to see which meta-packages include it.</p>
+      <div id="catalog-tree"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      <a href="https://docs.pgedge.com/enterprise/">Documentation</a> &middot;
+      <a href="https://github.com/pgEdge">GitHub</a> &middot;
+      <a href="https://pgedge.com">pgedge.com</a>
+    </p>
+  </footer>
+
+  <script>
+    var catalog = null;
+
+    async function init() {
+      var resp = await fetch("catalog.json");
+      catalog = await resp.json();
+      populateSelectors();
+      updateCommands();
+      renderCatalog();
+    }
+
+    function escapeHtml(text) {
+      var div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function populateSelectors() {
+      var platformEl = document.getElementById("platform");
+      var archEl = document.getElementById("arch");
+      var pgEl = document.getElementById("pg-version");
+      var metaEl = document.getElementById("meta-package");
+
+      // Platforms
+      Object.keys(catalog.platforms).forEach(function(key) {
+        var plat = catalog.platforms[key];
+        var opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = plat.label;
+        if (key === catalog.default_platform) opt.selected = true;
+        platformEl.appendChild(opt);
+      });
+
+      // PG versions
+      catalog.pg_versions.forEach(function(ver) {
+        var opt = document.createElement("option");
+        opt.value = ver;
+        opt.textContent = "PostgreSQL " + ver;
+        if (ver === catalog.default_pg_version) opt.selected = true;
+        pgEl.appendChild(opt);
+      });
+
+      // Meta-packages
+      catalog.meta_packages.forEach(function(mp) {
+        var opt = document.createElement("option");
+        opt.value = mp.id;
+        opt.textContent = mp.label;
+        metaEl.appendChild(opt);
+      });
+
+      updateArchOptions();
+
+      platformEl.addEventListener("change", function() {
+        updateArchOptions();
+        updateCommands();
+      });
+      archEl.addEventListener("change", updateCommands);
+      pgEl.addEventListener("change", updateCommands);
+      metaEl.addEventListener("change", updateCommands);
+    }
+
+    function updateArchOptions() {
+      var archEl = document.getElementById("arch");
+      var platform = catalog.platforms[document.getElementById("platform").value];
+      var currentArch = archEl.value;
+      archEl.innerHTML = "";
+      platform.architectures.forEach(function(arch) {
+        var opt = document.createElement("option");
+        opt.value = arch;
+        opt.textContent = arch === "x86_64" ? "x86_64 (Intel/AMD)" : "aarch64 (ARM)";
+        if (arch === currentArch || arch === catalog.default_arch) opt.selected = true;
+        archEl.appendChild(opt);
+      });
+    }
+
+    function updateCommands() {
+      var platformKey = document.getElementById("platform").value;
+      var pgVer = document.getElementById("pg-version").value;
+      var metaId = document.getElementById("meta-package").value;
+      var platform = catalog.platforms[platformKey];
+      var meta = null;
+      for (var i = 0; i < catalog.meta_packages.length; i++) {
+        if (catalog.meta_packages[i].id === metaId) {
+          meta = catalog.meta_packages[i];
+          break;
+        }
+      }
+
+      var pkgName = platform.pkg_manager === "dnf"
+        ? meta.rpm_pattern.replace("{ver}", pgVer)
+        : meta.deb_pattern.replace("{ver}", pgVer);
+
+      var lines = [];
+      var hasPrereqs = platform.prerequisites.length > 0;
+
+      // Prerequisites (if any)
+      if (hasPrereqs) {
+        lines.push({ text: "# 1. Configure prerequisites", comment: true });
+        platform.prerequisites.forEach(function(cmd) {
+          lines.push({ text: cmd });
+        });
+        lines.push({ text: "" });
+        lines.push({ text: "# 2. Add pgEdge repository", comment: true });
+      } else {
+        lines.push({ text: "# 1. Add pgEdge repository", comment: true });
+      }
+      lines.push({ text: platform.repo_install });
+      lines.push({ text: "" });
+
+      var stepNum = hasPrereqs ? 3 : 2;
+      lines.push({ text: "# " + stepNum + ". Install " + meta.label, comment: true });
+      lines.push({ text: platform.install_pattern.replace("{package}", pkgName) });
+      lines.push({ text: "" });
+
+      lines.push({ text: "# " + (stepNum + 1) + ". Initialize and start", comment: true });
+      lines.push({ text: platform.init_pattern.replace(/{ver}/g, pgVer) });
+      lines.push({ text: platform.start_pattern.replace(/{ver}/g, pgVer) });
+
+      var codeEl = document.querySelector("#install-commands code");
+      codeEl.innerHTML = lines.map(function(l) {
+        if (l.text === "") return "";
+        if (l.comment) return '<span class="comment">' + escapeHtml(l.text) + "</span>";
+        return escapeHtml(l.text);
+      }).join("\n");
+    }
+
+    function renderCatalog() {
+      var tree = document.getElementById("catalog-tree");
+      tree.innerHTML = "";
+
+      catalog.categories.forEach(function(cat) {
+        var div = document.createElement("div");
+        div.className = "category";
+
+        var header = document.createElement("div");
+        header.className = "category-header";
+        header.innerHTML =
+          "<span>" + escapeHtml(cat.name) +
+          ' <span class="count">(' + cat.packages.length + ")</span></span>" +
+          '<span class="arrow">&#9654;</span>';
+        header.addEventListener("click", function() {
+          div.classList.toggle("open");
+        });
+
+        var body = document.createElement("div");
+        body.className = "category-body";
+
+        cat.packages.forEach(function(pkg) {
+          var row = document.createElement("div");
+          row.className = "pkg-row";
+
+          var includedBadges = pkg.included_in.map(function(id) {
+            var mp = null;
+            for (var i = 0; i < catalog.meta_packages.length; i++) {
+              if (catalog.meta_packages[i].id === id) {
+                mp = catalog.meta_packages[i];
+                break;
+              }
+            }
+            var label = mp ? mp.label.split("(")[0].trim() : id;
+            return '<span class="badge included">' + escapeHtml(label) + "</span>";
+          }).join("");
+
+          var pgBadges = pkg.pg_versions.map(function(v) {
+            return '<span class="badge">PG ' + escapeHtml(v) + "</span>";
+          }).join("");
+
+          row.innerHTML =
+            "<div>" +
+            '<div class="pkg-name">' + escapeHtml(pkg.name) + "</div>" +
+            '<div class="pkg-desc">' + escapeHtml(pkg.description) + "</div>" +
+            '<div class="pkg-badges" style="margin-top:0.3rem">' + pgBadges + "</div>" +
+            "</div>" +
+            '<div class="pkg-meta">' + includedBadges + "</div>";
+
+          var detail = document.createElement("div");
+          detail.className = "pkg-detail";
+
+          var inclusionText = pkg.included_in.map(function(id) {
+            for (var i = 0; i < catalog.meta_packages.length; i++) {
+              if (catalog.meta_packages[i].id === id) {
+                return catalog.meta_packages[i].label;
+              }
+            }
+            return id;
+          }).join(", ");
+          detail.textContent = pkg.name + " is included in: " + inclusionText;
+
+          row.addEventListener("click", function() {
+            row.classList.toggle("expanded");
+          });
+
+          body.appendChild(row);
+          body.appendChild(detail);
+        });
+
+        div.appendChild(header);
+        div.appendChild(body);
+        tree.appendChild(div);
+      });
+    }
+
+    // Copy button handler
+    document.getElementById("copy-all").addEventListener("click", function() {
+      var btn = this;
+      var code = document.querySelector("#install-commands code").textContent;
+      navigator.clipboard.writeText(code).then(function() {
+        btn.classList.add("copied");
+        btn.querySelector("span").textContent = "Copied!";
+        setTimeout(function() {
+          btn.classList.remove("copied");
+          btn.querySelector("span").textContent = "Copy All";
+        }, 2000);
+      });
+    });
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
