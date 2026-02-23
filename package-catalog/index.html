@@ -269,11 +269,18 @@
     var catalog = null;
 
     async function init() {
-      var resp = await fetch("catalog.json");
-      catalog = await resp.json();
-      populateSelectors();
-      updateCommands();
-      renderCatalog();
+      try {
+        var resp = await fetch("catalog.json");
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        catalog = await resp.json();
+        populateSelectors();
+        updateCommands();
+        renderCatalog();
+      } catch (e) {
+        document.querySelector("main").innerHTML =
+          '<p style="color:#ef4444;padding:2rem;text-align:center">' +
+          'Failed to load catalog data. Make sure catalog.json is served alongside this page.</p>';
+      }
     }
 
     function escapeHtml(text) {

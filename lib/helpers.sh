@@ -81,7 +81,7 @@ start_spinner() {
 }
 
 stop_spinner() {
-  if [ -n "${SPINNER_PID:-}" ]; then
+  if [[ -n "${SPINNER_PID:-}" ]]; then
     kill "$SPINNER_PID" 2>/dev/null || true
     wait "$SPINNER_PID" 2>/dev/null || true
     printf "\r\033[K"
@@ -96,7 +96,7 @@ require_cmd() {
   local install_hint="${2:-}"
   if ! command -v "$cmd" &>/dev/null; then
     error "Required command not found: $cmd"
-    if [ -n "$install_hint" ]; then
+    if [[ -n "$install_hint" ]]; then
       echo -e "  ${DIM}Install hint: $install_hint${RESET}"
     fi
     exit 1

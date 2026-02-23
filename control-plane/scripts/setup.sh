@@ -60,7 +60,7 @@ start_control_plane() {
 wait_for_healthy() {
   start_spinner "Waiting for Control Plane API..."
   local retries=30
-  while [ "$retries" -gt 0 ]; do
+  while [[ "$retries" -gt 0 ]]; do
     # NOTE: API endpoint needs validation against CP v0.6 API
     if curl -sf "http://localhost:${CP_PORT}/v1/cluster/init" >/dev/null 2>&1; then
       stop_spinner
