@@ -1,0 +1,32 @@
+{
+  "title": "pgEdge Control Plane: Distributed Postgres",
+  "description": "Deploy distributed active-active PostgreSQL using the pgEdge Control Plane REST API — single node to multi-master with backup & restore",
+  "details": {
+    "intro": {
+      "text": "intro/text.md",
+      "background": "intro/background.sh",
+      "foreground": "intro/foreground.sh"
+    },
+    "steps": [
+      { "title": "Inspect Your Environment", "text": "step1/text.md", "verify": "step1/verify.sh" },
+      { "title": "Start the Control Plane", "text": "step2/text.md", "verify": "step2/verify.sh" },
+      { "title": "Create a Single-Node Database", "text": "step3/text.md", "verify": "step3/verify.sh" },
+      { "title": "Go Multi-Master", "text": "step4/text.md", "verify": "step4/verify.sh" },
+      { "title": "Prove Replication", "text": "step5/text.md", "verify": "step5/verify.sh" },
+      { "title": "Backup & Restore", "text": "step6/text.md", "verify": "step6/verify.sh" },
+      { "title": "Explore & Next Steps", "text": "step7/text.md" }
+    ],
+    "finish": {
+      "text": "finish/text.md"
+    },
+    "assets": {
+      "host01": [
+        { "file": "wait-background.sh", "target": "/usr/local/bin", "chmod": "+x" },
+        { "file": "wait-for-db.sh", "target": "/usr/local/bin", "chmod": "+x" }
+      ]
+    }
+  },
+  "backend": {
+    "imageid": "ubuntu-2204"
+  }
+}
