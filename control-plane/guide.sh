@@ -112,12 +112,12 @@ else
     info "Initializing Docker Swarm..."
     local_addr=$(ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || true)
     if [[ -n "$local_addr" ]]; then
-      if ! docker swarm init --advertise-addr "$local_addr" 2>/dev/null; then
+      if ! docker swarm init --advertise-addr "$local_addr" >/dev/null 2>&1; then
         error "Failed to initialize Docker Swarm. Try manually: docker swarm init --advertise-addr $local_addr"
         exit 1
       fi
     else
-      if ! docker swarm init 2>/dev/null; then
+      if ! docker swarm init >/dev/null 2>&1; then
         error "Failed to initialize Docker Swarm. Try manually: docker swarm init"
         exit 1
       fi
