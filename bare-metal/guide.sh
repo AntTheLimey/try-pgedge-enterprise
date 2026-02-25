@@ -40,11 +40,10 @@ explain "  ${BOLD}HA${RESET}            Patroni, etcd"
 echo ""
 explain "Two meta-packages make installation easy:"
 echo ""
-explain "  ${BOLD}Full (recommended)${RESET}  pgedge-enterprise-all_${PG_VERSION}       -- Everything included"
-explain "  ${BOLD}Minimal${RESET}             pgedge-enterprise-postgres_${PG_VERSION}   -- Core + replication extensions"
+explain "  ${BOLD}Minimal (recommended)${RESET}  pgedge-enterprise-postgres_${PG_VERSION}   -- Core + key extensions"
+explain "  ${BOLD}Full${RESET}                   pgedge-enterprise-all_${PG_VERSION}         -- Everything included"
 echo ""
-explain "${DIM}Browse the full catalog: https://www.pgedge.com/enterprise/packages${RESET}"
-explain "${DIM}Or run: bash ../package-catalog/serve.sh  (opens http://localhost:8080)${RESET}"
+explain "${DIM}Browse the full catalog: https://docs.pgedge.com/enterprise/packages${RESET}"
 
 prompt_continue
 
@@ -52,9 +51,58 @@ prompt_continue
 
 header "Step 2: Install Enterprise Postgres"
 
+# -- Check for existing PostgreSQL installation --
+EXISTING_PG=false
+
+if command -v psql &>/dev/null; then
+  EXISTING_PG=true
+fi
+
+if command -v systemctl &>/dev/null; then
+  if systemctl is-active --quiet postgresql 2>/dev/null \
+      || systemctl is-active --quiet "postgresql-*" 2>/dev/null; then
+    EXISTING_PG=true
+  fi
+fi
+
+if [[ -d /var/lib/postgresql ]] || [[ -d /var/lib/pgsql ]]; then
+  EXISTING_PG=true
+fi
+
+if [[ "$EXISTING_PG" == "true" ]]; then
+  echo ""
+  warn "Existing PostgreSQL installation detected."
+  echo ""
+  explain "This guide installs system packages and needs a machine without PostgreSQL."
+  explain "Use a fresh Linux VM -- UTM (macOS), Multipass, or a cloud instance all work."
+  echo ""
+  explain "Alternatively, try the ${BOLD}Control Plane${RESET} path -- it runs in Docker containers"
+  explain "and won't conflict with your existing PostgreSQL:"
+  echo ""
+  explain "  ${DIM}curl -sSL https://raw.githubusercontent.com/AntTheLimey/try-pgedge-enterprise/main/control-plane/run.sh | bash${RESET}"
+  echo ""
+  exit 0
+fi
+
 detect_os
 info "Detected: ${OS_ID} ${OS_VERSION} (${OS_ARCH})"
 echo ""
+
+# -- Choose minimal or full installation --
+explain "Two installation options:"
+echo ""
+explain "  ${BOLD}1) Minimal (recommended)${RESET}  PostgreSQL + Spock + pgVector + PostGIS + pgAudit"
+explain "  ${BOLD}2) Full${RESET}                   Everything above + pgAdmin, pgBouncer, pgBackRest,"
+explain "                            Patroni, TimescaleDB, and 15+ more packages"
+echo ""
+read -rp "  Choose [1/2] (default: 1): " INSTALL_CHOICE </dev/tty
+echo ""
+
+if [[ "${INSTALL_CHOICE:-1}" == "2" ]]; then
+  INSTALL_MODE="full"
+else
+  INSTALL_MODE="minimal"
+fi
 
 case "$OS_FAMILY" in
   el)
@@ -65,8 +113,13 @@ case "$OS_FAMILY" in
     explain "Adding the pgEdge repository..."
     prompt_run "sudo dnf install -y https://dnf.pgedge.com/reporpm/pgedge-release-latest.noarch.rpm"
 
-    explain "Installing pgEdge Enterprise Postgres ${PG_VERSION} (full)..."
-    prompt_run "sudo dnf install -y pgedge-enterprise-all_${PG_VERSION}"
+    if [[ "$INSTALL_MODE" == "full" ]]; then
+      explain "Installing pgEdge Enterprise Postgres ${PG_VERSION} (full)..."
+      prompt_run "sudo dnf install -y pgedge-enterprise-all_${PG_VERSION}"
+    else
+      explain "Installing pgEdge Enterprise Postgres ${PG_VERSION} (minimal)..."
+      prompt_run "sudo dnf install -y pgedge-enterprise-postgres_${PG_VERSION}"
+    fi
 
     explain "Initializing the database cluster and starting PostgreSQL..."
     prompt_run "sudo /usr/pgsql-${PG_VERSION}/bin/postgresql-${PG_VERSION}-setup initdb"
@@ -80,8 +133,13 @@ case "$OS_FAMILY" in
     explain "Adding the pgEdge repository..."
     prompt_run "sudo curl -sSL https://apt.pgedge.com/repodeb/pgedge-release_latest_all.deb -o /tmp/pgedge-release.deb && sudo dpkg -i /tmp/pgedge-release.deb && sudo apt-get update"
 
-    explain "Installing pgEdge Enterprise Postgres ${PG_VERSION} (full)..."
-    prompt_run "sudo apt-get install -y pgedge-enterprise-all-${PG_VERSION}"
+    if [[ "$INSTALL_MODE" == "full" ]]; then
+      explain "Installing pgEdge Enterprise Postgres ${PG_VERSION} (full)..."
+      prompt_run "sudo apt-get install -y pgedge-enterprise-all-${PG_VERSION}"
+    else
+      explain "Installing pgEdge Enterprise Postgres ${PG_VERSION} (minimal)..."
+      prompt_run "sudo apt-get install -y pgedge-enterprise-postgres-${PG_VERSION}"
+    fi
 
     explain "Starting the database cluster and enabling PostgreSQL..."
     prompt_run "sudo pg_ctlcluster ${PG_VERSION} main start"
@@ -144,7 +202,7 @@ info "package ecosystem on bare metal."
 echo ""
 explain "What's next:"
 explain ""
-explain "  Browse packages:       http://localhost:8080  (run: ../package-catalog/serve.sh)"
+explain "  Browse packages:       https://docs.pgedge.com/enterprise/packages"
 explain "  Try Control Plane:     ../control-plane/guide.sh"
 explain "  Full documentation:    https://docs.pgedge.com/enterprise/"
 echo ""
