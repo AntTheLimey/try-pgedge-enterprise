@@ -221,11 +221,8 @@ prevents Control Plane from auto-recovering the node while you work
 through the remaining steps:
 
 ```bash
-docker service scale \
-  $(docker service ls \
-      --filter label=pgedge.component=postgres \
-      --filter label=pgedge.node.name=n2 \
-      --format '{{ .Name }}')=0
+N2_SERVICE=$(docker service ls --filter label=pgedge.component=postgres --filter label=pgedge.node.name=n2 --format '{{ .Name }}')
+docker service scale "$N2_SERVICE"=0
 echo "Node n2 scaled to 0."
 ```
 
@@ -248,11 +245,8 @@ The cluster kept working with a node down.
 ### Scale n2 back to 1
 
 ```bash
-docker service scale \
-  $(docker service ls \
-      --filter label=pgedge.component=postgres \
-      --filter label=pgedge.node.name=n2 \
-      --format '{{ .Name }}')=1
+N2_SERVICE=$(docker service ls --filter label=pgedge.component=postgres --filter label=pgedge.node.name=n2 --format '{{ .Name }}')
+docker service scale "$N2_SERVICE"=1
 echo "Node n2 scaling back up."
 ```
 
