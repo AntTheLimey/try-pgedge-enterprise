@@ -10,9 +10,8 @@ code block below. Runme is pre-installed in GitHub Codespaces. If you
 are running locally, install the
 [Runme extension](https://marketplace.visualstudio.com/items?itemName=stateful.runme).
 
-**Option B -- Terminal:** Run the interactive guide instead:
-
-    bash guides/guide.sh
+**Option B -- Terminal:** Copy and paste into your terminal:
+`bash guides/guide.sh`
 
 ## What you will do
 
