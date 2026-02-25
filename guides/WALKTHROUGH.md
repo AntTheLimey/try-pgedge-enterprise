@@ -12,9 +12,7 @@ if you don't have it.
 
 **Option B -- Terminal:** Run the interactive guide instead:
 
-```bash
-bash guides/guide.sh
-```
+    bash guides/guide.sh
 
 ## What you will do
 
@@ -40,8 +38,12 @@ docker swarm init 2>/dev/null || echo "Swarm already active"
 
 ### Create the data directory
 
+Control Plane persists configuration and database state to a host
+directory that gets mounted into the container:
+
 ```bash
 mkdir -p ~/pgedge/control-plane
+echo "Data directory ready: ~/pgedge/control-plane"
 ```
 
 ### Pull and start the Control Plane container
@@ -73,8 +75,10 @@ echo "Control Plane is ready!"
 
 ### Initialize the cluster
 
-This creates the cluster and saves the auth token to a file so
-subsequent code blocks can use it:
+Initializing the cluster returns a **bearer token** that authenticates
+all subsequent API calls (creating databases, checking status, cleanup).
+The token is saved to `/tmp/pgedge-env` so each Runme code block can
+source it:
 
 ```bash
 RESPONSE=$(curl -sf http://localhost:3000/v1/cluster/init)
@@ -88,16 +92,18 @@ echo "Cluster initialized. Token saved to /tmp/pgedge-env"
 ## Step 2: Create a Distributed Database
 
 Control Plane uses a declarative model. You describe the database you
-want -- name, users, and nodes -- and CP handles the rest. Spock
+want -- name, users, and nodes -- and Control Plane handles the rest. Spock
 multi-master replication is configured automatically between all nodes.
 
 ### Create the database
 
 This creates a 3-node database with an admin user. It takes a minute
-or two while CP pulls the Postgres image and starts each node.
+or two while Control Plane pulls the Postgres image and starts each
+node.
 
-> **Tip:** Open a second terminal and run `watch docker ps` -- you
-> will want this for the rest of the demo.
+> **Tip:** Split the VS Code terminal (Cmd+Shift+5 / Ctrl+Shift+5)
+> and run `watch docker ps` in the new pane -- you will want this
+> for the rest of the demo.
 
 ```bash
 source /tmp/pgedge-env
@@ -124,6 +130,10 @@ curl -s -X POST http://localhost:3000/v1/databases \
         }
     }'
 ```
+
+The API returns a JSON task confirming that database creation has
+started. Creation is asynchronous -- Control Plane is now pulling the
+Postgres image and spinning up three containers in the background.
 
 ### Wait for the database
 
