@@ -25,7 +25,31 @@ check_existing() {
 }
 
 ensure_docker() {
-  require_cmd docker "Install Docker: https://docs.docker.com/get-docker/"
+  if ! command -v docker &>/dev/null; then
+    warn "Docker is not installed."
+    echo ""
+    read -rp "  Install Docker now? (Y/n) " INSTALL_DOCKER </dev/tty
+    echo ""
+    if [[ "${INSTALL_DOCKER,,}" == "n"* ]]; then
+      explain "Install Docker and re-run the guide:"
+      echo ""
+      explain "  ${DIM}curl -fsSL https://get.docker.com | sudo sh${RESET}"
+      explain "  ${DIM}sudo usermod -aG docker \$USER${RESET}"
+      explain "  ${DIM}# Log out and back in, then:${RESET}"
+      explain "  ${DIM}curl -sSL https://raw.githubusercontent.com/AntTheLimey/try-pgedge-enterprise/main/control-plane/run.sh | bash${RESET}"
+      echo ""
+      exit 0
+    fi
+    info "Installing Docker..."
+    curl -fsSL https://get.docker.com | sudo sh
+    sudo usermod -aG docker "$USER"
+    warn "You need to log out and back in for Docker group permissions to take effect."
+    echo ""
+    explain "Then re-run the guide:"
+    explain "  ${DIM}curl -sSL https://raw.githubusercontent.com/AntTheLimey/try-pgedge-enterprise/main/control-plane/run.sh | bash${RESET}"
+    echo ""
+    exit 0
+  fi
 
   if ! docker info &>/dev/null; then
     error "Docker daemon is not running. Please start Docker and try again."
