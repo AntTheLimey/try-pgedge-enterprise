@@ -103,6 +103,14 @@ explain "instances. It runs as a single container and exposes a REST API."
 
 detect_ports
 
+# Remove stale container from a previous run
+if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${CP_CONTAINER}$"; then
+  if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${CP_CONTAINER}$"; then
+    info "Removing stale container from a previous run..."
+    docker rm -f "${CP_CONTAINER}" >/dev/null 2>&1 || true
+  fi
+fi
+
 # Check if already running
 if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${CP_CONTAINER}$"; then
   info "Control Plane is already running (container: ${CP_CONTAINER})"
