@@ -24,7 +24,7 @@ if ! command -v docker &>/dev/null; then
   explain "  ${DIM}curl -fsSL https://get.docker.com | sudo sh${RESET}"
   explain "  ${DIM}sudo usermod -aG docker \$USER${RESET}"
   explain "  ${DIM}# Log out and back in, then:${RESET}"
-  explain "  ${DIM}curl -sSL https://raw.githubusercontent.com/AntTheLimey/try-pgedge-enterprise/main/control-plane/run.sh | bash${RESET}"
+  explain "  ${DIM}curl -sSL https://raw.githubusercontent.com/AntTheLimey/try-pgedge-enterprise/main/guides/run.sh | bash${RESET}"
   echo ""
   exit 0
 fi

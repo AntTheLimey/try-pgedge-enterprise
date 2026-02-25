@@ -38,11 +38,10 @@ scripts follow try-pgedge-helm interactive walkthrough patterns.
     ├── README.md                          # Landing page with both paths
     ├── lib/
     │   └── helpers.sh                     # Shared shell helper functions
-    ├── control-plane/                     # "Get Running Fast" path
+    ├── guides/                            # "Get Running Fast" path
     │   ├── guide.sh                       # Interactive walkthrough
-    │   ├── WALKTHROUGH.md                 # Runme-compatible steps
-    │   └── scripts/
-    │       └── setup.sh                   # Bootstrap CP, configure, health checks
+    │   ├── run.sh                         # curl|bash bootstrap script
+    │   └── WALKTHROUGH.md                 # Runme-compatible steps
     ├── package-catalog/                   # Interactive web page
     │   ├── index.html                     # Single-page app (vanilla JS)
     │   ├── catalog.json                   # Package metadata

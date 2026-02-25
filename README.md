@@ -14,10 +14,10 @@ a single primary through HA to full multi-master.
 
 ```bash
 # Interactive walkthrough
-./control-plane/guide.sh
+./guides/guide.sh
 
 # Or follow the step-by-step markdown
-# Open control-plane/WALKTHROUGH.md in VS Code with Runme
+# Open guides/WALKTHROUGH.md in VS Code with Runme
 ```
 
 ### Explore & Install — Bare Metal

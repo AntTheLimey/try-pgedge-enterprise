@@ -1,0 +1,19 @@
+{
+  "name": "pgEdge Control Plane Demo",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "runArgs": ["--privileged"],
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "workbench.startupEditor": "none"
+      },
+      "extensions": ["stateful.runme"]
+    }
+  },
+  "postAttachCommand": "code guides/WALKTHROUGH.md 2>/dev/null || true"
+}

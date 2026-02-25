@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Bootstrap script — downloads and runs the control-plane guide without cloning.
-# Usage: curl -sSL https://raw.githubusercontent.com/AntTheLimey/try-pgedge-enterprise/main/control-plane/run.sh | bash
+# Bootstrap script — downloads and runs the Control Plane guide without cloning.
+# Usage: curl -sSL https://raw.githubusercontent.com/AntTheLimey/try-pgedge-enterprise/main/guides/run.sh | bash
 
 BASE_URL="https://raw.githubusercontent.com/AntTheLimey/try-pgedge-enterprise/main"
 DEST="/tmp/pgedge-enterprise"
@@ -14,11 +14,11 @@ fi
 
 echo "Downloading pgEdge Control Plane guide..."
 
-mkdir -p "$DEST/control-plane" "$DEST/lib"
+mkdir -p "$DEST/guides" "$DEST/lib"
 
 files=(
   "lib/helpers.sh"
-  "control-plane/guide.sh"
+  "guides/guide.sh"
 )
 
 for f in "${files[@]}"; do
@@ -29,6 +29,6 @@ for f in "${files[@]}"; do
 done
 
 chmod +x "$DEST/lib/helpers.sh" \
-         "$DEST/control-plane/guide.sh"
+         "$DEST/guides/guide.sh"
 
-exec bash "$DEST/control-plane/guide.sh"
+exec bash "$DEST/guides/guide.sh"
