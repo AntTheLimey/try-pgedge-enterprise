@@ -383,5 +383,5 @@ explain "  ${DIM}docker rm -f \$(docker ps -aq --filter label=pgedge.database.id
 explain "  ${DIM}# Leave Docker Swarm${RESET}"
 explain "  ${DIM}docker swarm leave --force${RESET}"
 explain "  ${DIM}# Remove data directory${RESET}"
-explain "  ${DIM}rm -rf ~/pgedge/control-plane${RESET}"
+explain "  ${DIM}sudo rm -rf ~/pgedge/control-plane${RESET}"
 echo ""
