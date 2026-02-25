@@ -108,13 +108,19 @@ if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${CP_CONTAINER}$"; th
   info "Control Plane is already running (container: ${CP_CONTAINER})"
 else
   # Initialize Docker Swarm if needed
-  if ! docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q "active"; then
+  if [[ "$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null)" != "active" ]]; then
     info "Initializing Docker Swarm..."
     local_addr=$(ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || true)
     if [[ -n "$local_addr" ]]; then
-      docker swarm init --advertise-addr "$local_addr" 2>/dev/null || true
+      if ! docker swarm init --advertise-addr "$local_addr" 2>/dev/null; then
+        error "Failed to initialize Docker Swarm. Try manually: docker swarm init --advertise-addr $local_addr"
+        exit 1
+      fi
     else
-      docker swarm init 2>/dev/null || true
+      if ! docker swarm init 2>/dev/null; then
+        error "Failed to initialize Docker Swarm. Try manually: docker swarm init"
+        exit 1
+      fi
     fi
   fi
 
