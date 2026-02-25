@@ -284,12 +284,123 @@ prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_
 
 prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
+# ── Step 4: Scale Out (Optional) ─────────────────────────────────────────────
+
+header "Step 4: Scale Out (Optional)"
+
+explain "Control Plane makes it easy to add nodes to a running database."
+explain "One API call adds a 4th node, and CP automatically replicates all"
+explain "existing data to it."
+echo ""
+
+read -rp "  Try it? (Y/n) " TRY_SCALE </dev/tty
+echo ""
+
+if [[ "${TRY_SCALE,,}" != "n"* ]]; then
+  # Pick a free port for n4
+  N4_PORT=$((N3_PORT + 1))
+  while port_in_use "$N4_PORT"; do
+    N4_PORT=$((N4_PORT + 1))
+  done
+
+  explain "Adding node n4 on port ${N4_PORT}. This sends the full database spec"
+  explain "with the new node included -- CP handles the rest."
+
+  prompt_run "curl -s -X POST ${CP_URL}/v1/databases/${DB_ID} \\
+    -H 'Authorization: Bearer ${CP_TOKEN}' \\
+    -H 'Content-Type: application/json' \\
+    --data '{
+        \"spec\": {
+            \"database_name\": \"${DB_ID}\",
+            \"database_users\": [
+                {
+                    \"username\": \"admin\",
+                    \"password\": \"password\",
+                    \"db_owner\": true,
+                    \"attributes\": [\"SUPERUSER\", \"LOGIN\"]
+                }
+            ],
+            \"nodes\": [
+                { \"name\": \"n1\", \"port\": ${N1_PORT}, \"host_ids\": [\"host-1\"] },
+                { \"name\": \"n2\", \"port\": ${N2_PORT}, \"host_ids\": [\"host-1\"] },
+                { \"name\": \"n3\", \"port\": ${N3_PORT}, \"host_ids\": [\"host-1\"] },
+                { \"name\": \"n4\", \"port\": ${N4_PORT}, \"host_ids\": [\"host-1\"], \"source_node\": \"n1\" }
+            ]
+        }
+    }'"
+
+  explain "Waiting for n4 to come up..."
+  echo ""
+
+  start_spinner "Waiting for n4 to become available..."
+  retries=60
+  n4_ready=false
+  while [[ "$retries" -gt 0 ]]; do
+    if docker ps --format '{{.Names}}' | grep -q "postgres-${DB_ID}-n4-"; then
+      n4_ready=true
+      break
+    fi
+    sleep 3
+    retries=$((retries - 1))
+  done
+  stop_spinner
+
+  if [[ "$n4_ready" == "true" ]]; then
+    info "Node n4 is running."
+    echo ""
+    explain "Let's check -- the data we inserted earlier should already be on n4:"
+
+    prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n4-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+  else
+    warn "n4 is still starting. Check 'docker ps' to monitor progress."
+  fi
+fi
+
+# ── Step 5: Resilience (Optional) ────────────────────────────────────────────
+
+header "Step 5: Resilience (Optional)"
+
+explain "Active-active means every node accepts reads and writes. If a node"
+explain "goes down, the others keep working. Let's prove it by killing n2."
+echo ""
+
+read -rp "  Try it? (Y/n) " TRY_RESILIENCE </dev/tty
+echo ""
+
+if [[ "${TRY_RESILIENCE,,}" != "n"* ]]; then
+  explain "Stopping n2's container..."
+  echo ""
+
+  N2_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n2-" | head -1)
+  if [[ -n "$N2_CONTAINER" ]]; then
+    docker stop "$N2_CONTAINER" >/dev/null 2>&1
+    info "Node n2 stopped."
+  else
+    warn "Could not find n2 container."
+  fi
+
+  echo ""
+  explain "n2 is down. Let's write on n1 and read from n3 -- they should still work:"
+
+  prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (3, 'Written while n2 is down!');\""
+
+  prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n3-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+
+  info "The cluster kept working with a node down."
+  echo ""
+  explain "In a production environment, Control Plane would automatically recover n2."
+  explain "For this demo, you can restart it manually:"
+  echo ""
+  explain "  ${DIM}docker start ${N2_CONTAINER}${RESET}"
+fi
+
 # ── Completion ───────────────────────────────────────────────────────────────
 
 header "Done!"
 
-info "You've created a 3-node distributed Postgres database with"
-info "active-active multi-master replication, all via a single API call."
+info "You've created a distributed Postgres database with multi-master"
+info "replication, scaled it out, and proven it survives node failure --"
+info "all through the Control Plane API."
 echo ""
 explain "What's next:"
 explain ""
