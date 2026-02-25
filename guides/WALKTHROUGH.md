@@ -302,7 +302,31 @@ If you are running locally, stop everything and remove the data:
 
 ## What's Next
 
-- **Full documentation:**
-  [docs.pgedge.com/enterprise](https://docs.pgedge.com/enterprise/)
-- **Browse all packages:**
-  [Package Catalog](https://docs.pgedge.com/enterprise/packages)
+You have a working 3-node distributed database with automatic
+failover. Here is where to go from here.
+
+### Understand what you just deployed
+
+| Topic | Description |
+|-------|-------------|
+| [Control Plane docs](https://docs.pgedge.com/control-plane) | Architecture, API reference, configuration options |
+| [Core concepts](https://docs.pgedge.com/control-plane/prerequisites/concepts) | Hosts, clusters, databases, nodes, and instances |
+| [Spock multi-master](https://docs.pgedge.com/spock-v5) | How active-active replication works under the hood -- conflict resolution, column-level control, tuning |
+
+### Take it further
+
+| Topic | Description |
+|-------|-------------|
+| [Create and manage databases](https://docs.pgedge.com/control-plane/using/create-db) | Multi-node topologies, user management, connection strings |
+| [Backups and restore](https://docs.pgedge.com/control-plane/using/backup-restore) | pgBackRest integration for point-in-time recovery |
+| [Read replicas](https://docs.pgedge.com/control-plane/using/read-replicas) | Scale reads without adding multi-master nodes |
+| [High availability](https://docs.pgedge.com/control-plane/using-ha) | Connection strategies, failover best practices |
+| [Upgrades](https://docs.pgedge.com/control-plane/using/upgrade-db) | Minor and major Postgres version upgrades |
+
+### Explore the ecosystem
+
+| Resource | Link |
+|----------|------|
+| **Package Catalog** -- browse all 30+ packages, pick your platform | [antthelimy.github.io/try-pgedge-enterprise/package-catalog](https://antthelimy.github.io/try-pgedge-enterprise/package-catalog/) |
+| **Enterprise Postgres** -- full package details, troubleshooting, offline repos | [docs.pgedge.com/enterprise](https://docs.pgedge.com/enterprise/) |
+| **API Reference** -- interactive OpenAPI docs for the Control Plane REST API | [docs.pgedge.com/control-plane/api/reference](https://docs.pgedge.com/control-plane/api/reference) |
