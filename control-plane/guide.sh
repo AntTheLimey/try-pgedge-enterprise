@@ -138,6 +138,8 @@ prompt_run "curl -s -X POST ${CP_URL}/v1/databases \\
 
 explain "Database creation is asynchronous. Let's poll until it's ready..."
 echo ""
+explain "${DIM}Tip: open a second terminal and run 'watch docker ps' to see containers spin up${RESET}"
+echo ""
 
 start_spinner "Waiting for database to become available..."
 retries=60
