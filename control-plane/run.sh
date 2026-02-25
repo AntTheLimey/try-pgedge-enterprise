@@ -14,12 +14,11 @@ fi
 
 echo "Downloading pgEdge Control Plane guide..."
 
-mkdir -p "$DEST/control-plane/scripts" "$DEST/lib"
+mkdir -p "$DEST/control-plane" "$DEST/lib"
 
 files=(
   "lib/helpers.sh"
   "control-plane/guide.sh"
-  "control-plane/scripts/setup.sh"
 )
 
 for f in "${files[@]}"; do
@@ -30,7 +29,6 @@ for f in "${files[@]}"; do
 done
 
 chmod +x "$DEST/lib/helpers.sh" \
-         "$DEST/control-plane/guide.sh" \
-         "$DEST/control-plane/scripts/setup.sh"
+         "$DEST/control-plane/guide.sh"
 
 exec bash "$DEST/control-plane/guide.sh"

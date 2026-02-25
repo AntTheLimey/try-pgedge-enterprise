@@ -6,23 +6,40 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../lib/helpers.sh"
 setup_trap
 
+CP_IMAGE="${CP_IMAGE:-ghcr.io/pgedge/control-plane}"
+CP_CONTAINER="host-1"
 CP_PORT="${CP_PORT:-3000}"
 CP_URL="http://localhost:${CP_PORT}"
+CP_DATA="${CP_DATA:-$HOME/pgedge/control-plane}"
 DB_ID="example"
+
+# ── Prerequisites ────────────────────────────────────────────────────────────
+
+if ! command -v docker &>/dev/null; then
+  header "pgEdge Enterprise -- Get Running Fast"
+  warn "Docker is required but not installed."
+  echo ""
+  explain "Install Docker, then re-run the guide:"
+  echo ""
+  explain "  ${DIM}curl -fsSL https://get.docker.com | sudo sh${RESET}"
+  explain "  ${DIM}sudo usermod -aG docker \$USER${RESET}"
+  explain "  ${DIM}# Log out and back in, then:${RESET}"
+  explain "  ${DIM}curl -sSL https://raw.githubusercontent.com/AntTheLimey/try-pgedge-enterprise/main/control-plane/run.sh | bash${RESET}"
+  echo ""
+  exit 0
+fi
+
+if ! docker info &>/dev/null; then
+  header "pgEdge Enterprise -- Get Running Fast"
+  error "Docker daemon is not running. Please start Docker and try again."
+  exit 1
+fi
 
 # ── Port detection ───────────────────────────────────────────────────────────
 
 port_in_use() {
   ss -tln 2>/dev/null | grep -q ":${1} " && return 0
   return 1
-}
-
-find_free_port() {
-  local port="$1"
-  while port_in_use "$port"; do
-    port=$((port + 1))
-  done
-  echo "$port"
 }
 
 detect_ports() {
@@ -74,8 +91,6 @@ explain "  2. Create a distributed database"
 explain "  3. Verify multi-master replication"
 explain ""
 explain "You'll go from zero to active-active replication in minutes."
-explain ""
-explain "${DIM}Prerequisites: Docker (with host networking)${RESET}"
 
 prompt_continue
 
@@ -86,22 +101,75 @@ header "Step 1: Start Control Plane"
 explain "Control Plane is a lightweight orchestrator that manages your Postgres"
 explain "instances. It runs as a single container and exposes a REST API."
 
-prompt_continue
-
 detect_ports
 
-explain "Setting up Control Plane..."
-echo ""
-bash "$SCRIPT_DIR/scripts/setup.sh" setup
-
-# Read the auth token
-CP_DATA="${CP_DATA:-$HOME/pgedge/control-plane}"
-if [[ -f "$CP_DATA/.token" ]]; then
-  CP_TOKEN=$(cat "$CP_DATA/.token")
+# Check if already running
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${CP_CONTAINER}$"; then
+  info "Control Plane is already running (container: ${CP_CONTAINER})"
 else
-  error "Could not find Control Plane auth token."
+  # Initialize Docker Swarm if needed
+  if ! docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q "active"; then
+    info "Initializing Docker Swarm..."
+    local_addr=$(ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || true)
+    if [[ -n "$local_addr" ]]; then
+      docker swarm init --advertise-addr "$local_addr" 2>/dev/null || true
+    else
+      docker swarm init 2>/dev/null || true
+    fi
+  fi
+
+  # Pull and start Control Plane
+  mkdir -p "$CP_DATA"
+
+  start_spinner "Pulling Control Plane image..."
+  docker pull "$CP_IMAGE" >/dev/null 2>&1
+  stop_spinner
+  info "Image pulled: $CP_IMAGE"
+
+  start_spinner "Starting Control Plane..."
+  docker run --detach \
+    --env PGEDGE_HOST_ID="${CP_CONTAINER}" \
+    --env PGEDGE_DATA_DIR="${CP_DATA}" \
+    --volume "${CP_DATA}":"${CP_DATA}" \
+    --volume /var/run/docker.sock:/var/run/docker.sock \
+    --network host \
+    --name "${CP_CONTAINER}" \
+    "$CP_IMAGE" \
+    run >/dev/null 2>&1
+  stop_spinner
+  info "Container started: $CP_CONTAINER"
+
+  # Wait for API
+  start_spinner "Waiting for Control Plane API..."
+  retries=30
+  while [[ "$retries" -gt 0 ]]; do
+    if curl -sf "http://localhost:${CP_PORT}/v1/version" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 2
+    retries=$((retries - 1))
+  done
+  stop_spinner
+
+  if [[ "$retries" -eq 0 ]]; then
+    error "Control Plane did not become healthy within 60 seconds."
+    exit 1
+  fi
+  info "Control Plane running on ${CP_URL}"
+fi
+
+# Initialize cluster and get auth token
+init_response=$(curl -sf "${CP_URL}/v1/cluster/init" 2>/dev/null || true)
+if [[ -z "$init_response" ]]; then
+  error "Failed to initialize cluster."
   exit 1
 fi
+CP_TOKEN=$(echo "$init_response" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+if [[ -z "$CP_TOKEN" ]]; then
+  error "Failed to retrieve auth token from cluster init."
+  exit 1
+fi
+info "Cluster initialized."
 
 prompt_continue
 
