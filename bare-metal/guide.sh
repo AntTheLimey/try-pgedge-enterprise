@@ -74,6 +74,9 @@ case "$OS_FAMILY" in
     ;;
 
   debian|ubuntu)
+    explain "Installing prerequisites..."
+    prompt_run "sudo apt-get update && sudo apt-get install -y curl gnupg2 apt-transport-https"
+
     explain "Adding the pgEdge repository..."
     prompt_run "sudo curl -sSL https://apt.pgedge.com/repodeb/pgedge-release_latest_all.deb -o /tmp/pgedge-release.deb && sudo dpkg -i /tmp/pgedge-release.deb && sudo apt-get update"
 
