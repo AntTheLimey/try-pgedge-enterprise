@@ -184,7 +184,7 @@ if [[ -z "$CP_TOKEN" ]]; then
   error "Failed to retrieve auth token from cluster init."
   exit 1
 fi
-info "Cluster initialized."
+info "Cluster initialized. You now have an authenticated API session to manage databases."
 
 prompt_continue
 
@@ -199,7 +199,7 @@ echo ""
 explain "This will create a 3-node database. It takes a minute or two while CP"
 explain "pulls the Postgres image and starts each node."
 echo ""
-explain "${DIM}Tip: open a second terminal and run 'watch docker ps' to see containers spin up${RESET}"
+explain "${DIM}Tip: open a second terminal and run 'watch docker ps' -- you'll want this for the rest of the demo${RESET}"
 
 prompt_run "curl -s -X POST ${CP_URL}/v1/databases \\
     -H 'Authorization: Bearer ${CP_TOKEN}' \\
@@ -248,11 +248,6 @@ else
   prompt_continue
 fi
 
-# Helper: find a node's container name by node name (e.g. "n1")
-node_container() {
-  docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-${1}-" | head -1
-}
-
 explain ""
 explain "Let's connect to n1 using psql inside the container:"
 
@@ -285,6 +280,8 @@ prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_
 
 prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
+info "Both rows replicated to n1 -- every node can read every other node's writes."
+
 # ── Step 4: Resilience ───────────────────────────────────────────────────────
 
 header "Step 4: Resilience"
@@ -309,13 +306,11 @@ echo ""
 N2_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n2-" | head -1)
 if [[ -n "$N2_CONTAINER" ]]; then
   docker stop "$N2_CONTAINER" >/dev/null 2>&1
-  info "Node n2 stopped."
+  info "Node n2 killed."
 else
   warn "Could not find n2 container."
 fi
 
-echo ""
-explain "n2 is down. Writing on n1 and reading from n3 before CP can recover it..."
 echo ""
 
 N1_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n1-" | head -1)
