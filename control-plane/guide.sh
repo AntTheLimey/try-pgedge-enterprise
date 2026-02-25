@@ -39,6 +39,15 @@ explain "Setting up Control Plane..."
 echo ""
 bash "$SCRIPT_DIR/scripts/setup.sh" setup
 
+# Read the auth token
+CP_DATA="${CP_DATA:-$HOME/pgedge/control-plane}"
+if [[ -f "$CP_DATA/.token" ]]; then
+  CP_TOKEN=$(cat "$CP_DATA/.token")
+else
+  error "Could not find Control Plane auth token."
+  exit 1
+fi
+
 prompt_continue
 
 # ── Step 2: Create a Distributed Database ────────────────────────────────────
@@ -50,6 +59,7 @@ explain "want -- name, users, and nodes -- and CP handles the rest. Spock"
 explain "multi-master replication is configured automatically between all nodes."
 
 prompt_run "curl -s -X POST ${CP_URL}/v1/databases \\
+    -H 'Authorization: Bearer ${CP_TOKEN}' \\
     -H 'Content-Type: application/json' \\
     --data '{
         \"id\": \"${DB_ID}\",
@@ -77,7 +87,7 @@ echo ""
 start_spinner "Waiting for database to become available..."
 retries=60
 while [[ "$retries" -gt 0 ]]; do
-  state=$(curl -sf "${CP_URL}/v1/databases/${DB_ID}" 2>/dev/null | grep -o '"state":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+  state=$(curl -sf -H "Authorization: Bearer ${CP_TOKEN}" "${CP_URL}/v1/databases/${DB_ID}" 2>/dev/null | grep -o '"state":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
   if [[ "$state" == "available" ]]; then
     break
   fi
@@ -90,14 +100,14 @@ if [[ "$state" == "available" ]]; then
   info "Database '${DB_ID}' is available with 3 nodes (n1, n2, n3)"
 else
   warn "Database is still being created (state: ${state:-unknown}). You can check progress with:"
-  show_cmd "curl -s ${CP_URL}/v1/databases/${DB_ID} | jq .state"
+  show_cmd "curl -s -H 'Authorization: Bearer ${CP_TOKEN}' ${CP_URL}/v1/databases/${DB_ID} | jq .state"
   prompt_continue
 fi
 
 explain ""
 explain "Let's check the database status:"
 
-prompt_run "curl -s ${CP_URL}/v1/databases/${DB_ID} | jq '{state: .state, nodes: [.spec.nodes[].name]}'"
+prompt_run "curl -s -H 'Authorization: Bearer ${CP_TOKEN}' ${CP_URL}/v1/databases/${DB_ID} | jq '{state: .state, nodes: [.spec.nodes[].name]}'"
 
 explain ""
 explain "Connect to one of the nodes:"
@@ -140,8 +150,7 @@ info "active-active multi-master replication, all via a single API call."
 echo ""
 explain "What's next:"
 explain ""
-explain "  Browse packages:       https://antthelimey.github.io/try-pgedge-enterprise/package-catalog/"
-explain "  Try bare metal:        ../bare-metal/guide.sh"
+explain "  Browse packages:       https://docs.pgedge.com/enterprise/packages"
 explain "  Full documentation:    https://docs.pgedge.com/enterprise/"
 echo ""
 explain "${DIM}To clean up: bash $SCRIPT_DIR/scripts/setup.sh cleanup${RESET}"

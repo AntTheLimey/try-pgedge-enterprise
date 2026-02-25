@@ -86,9 +86,31 @@ wait_for_healthy() {
   exit 1
 }
 
+init_cluster() {
+  local init_response
+  init_response=$(curl -sf "http://localhost:${CP_PORT}/v1/cluster/init" 2>/dev/null || true)
+  if [[ -z "$init_response" ]]; then
+    error "Failed to initialize cluster."
+    exit 1
+  fi
+  CP_TOKEN=$(echo "$init_response" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+  if [[ -z "$CP_TOKEN" ]]; then
+    error "Failed to retrieve auth token from cluster init."
+    exit 1
+  fi
+  info "Cluster initialized."
+  # Write token to a file so guide.sh can read it
+  echo "$CP_TOKEN" > "$CP_DATA/.token"
+}
+
 cleanup() {
+  # Read token if available
+  local token=""
+  if [[ -f "$CP_DATA/.token" ]]; then
+    token=$(cat "$CP_DATA/.token")
+  fi
   # Delete any databases first (async, best-effort)
-  curl -sf -X DELETE "http://localhost:${CP_PORT}/v1/databases/example" >/dev/null 2>&1 || true
+  curl -sf -X DELETE -H "Authorization: Bearer ${token}" "http://localhost:${CP_PORT}/v1/databases/example" >/dev/null 2>&1 || true
   sleep 3
 
   if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${CP_CONTAINER}$"; then
@@ -123,6 +145,7 @@ case "${1:-setup}" in
     ensure_swarm
     start_control_plane
     wait_for_healthy
+    init_cluster
     ;;
   cleanup)
     cleanup
