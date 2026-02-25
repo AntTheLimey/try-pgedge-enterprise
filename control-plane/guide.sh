@@ -10,6 +10,59 @@ CP_PORT="${CP_PORT:-3000}"
 CP_URL="http://localhost:${CP_PORT}"
 DB_ID="example"
 
+# ── Port detection ───────────────────────────────────────────────────────────
+
+port_in_use() {
+  ss -tln 2>/dev/null | grep -q ":${1} " && return 0
+  return 1
+}
+
+find_free_port() {
+  local port="$1"
+  while port_in_use "$port"; do
+    port=$((port + 1))
+  done
+  echo "$port"
+}
+
+detect_ports() {
+  local preferred=(5432 5433 5434)
+  local all_free=true
+
+  for p in "${preferred[@]}"; do
+    if port_in_use "$p"; then
+      all_free=false
+      break
+    fi
+  done
+
+  if [[ "$all_free" == "true" ]]; then
+    N1_PORT=5432
+    N2_PORT=5433
+    N3_PORT=5434
+    return
+  fi
+
+  # Find 3 consecutive free ports starting from 5432
+  local start=5432
+  while true; do
+    local p1="$start"
+    local p2=$((start + 1))
+    local p3=$((start + 2))
+    if ! port_in_use "$p1" && ! port_in_use "$p2" && ! port_in_use "$p3"; then
+      N1_PORT="$p1"
+      N2_PORT="$p2"
+      N3_PORT="$p3"
+      break
+    fi
+    start=$((start + 1))
+  done
+
+  warn "Standard Postgres ports (5432-5434) are in use."
+  explain "Using available ports instead: ${BOLD}${N1_PORT}, ${N2_PORT}, ${N3_PORT}${RESET}"
+  echo ""
+}
+
 # ── Welcome ──────────────────────────────────────────────────────────────────
 
 header "pgEdge Enterprise -- Get Running Fast"
@@ -34,6 +87,8 @@ explain "Control Plane is a lightweight orchestrator that manages your Postgres"
 explain "instances. It runs as a single container and exposes a REST API."
 
 prompt_continue
+
+detect_ports
 
 explain "Setting up Control Plane..."
 echo ""
@@ -74,9 +129,9 @@ prompt_run "curl -s -X POST ${CP_URL}/v1/databases \\
                 }
             ],
             \"nodes\": [
-                { \"name\": \"n1\", \"port\": 6432, \"host_ids\": [\"host-1\"] },
-                { \"name\": \"n2\", \"port\": 6433, \"host_ids\": [\"host-1\"] },
-                { \"name\": \"n3\", \"port\": 6434, \"host_ids\": [\"host-1\"] }
+                { \"name\": \"n1\", \"port\": ${N1_PORT}, \"host_ids\": [\"host-1\"] },
+                { \"name\": \"n2\", \"port\": ${N2_PORT}, \"host_ids\": [\"host-1\"] },
+                { \"name\": \"n3\", \"port\": ${N3_PORT}, \"host_ids\": [\"host-1\"] }
             ]
         }
     }'"
@@ -112,7 +167,7 @@ prompt_run "curl -s -H 'Authorization: Bearer ${CP_TOKEN}' ${CP_URL}/v1/database
 explain ""
 explain "Connect to one of the nodes:"
 
-prompt_run "PGPASSWORD=password psql -h localhost -p 6432 -U admin ${DB_ID} -c \"SELECT version();\""
+prompt_run "PGPASSWORD=password psql -h localhost -p ${N1_PORT} -U admin ${DB_ID} -c \"SELECT version();\""
 
 prompt_continue
 
@@ -125,21 +180,21 @@ explain "accepts writes and changes propagate automatically."
 explain ""
 explain "Let's prove it. First, create a table on n1:"
 
-prompt_run "PGPASSWORD=password psql -h localhost -p 6432 -U admin ${DB_ID} -c \"CREATE TABLE example (id int primary key, data text);\""
+prompt_run "PGPASSWORD=password psql -h localhost -p ${N1_PORT} -U admin ${DB_ID} -c \"CREATE TABLE example (id int primary key, data text);\""
 
 explain "Insert a row on n2:"
 
-prompt_run "PGPASSWORD=password psql -h localhost -p 6433 -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (1, 'Hello from n2!');\""
+prompt_run "PGPASSWORD=password psql -h localhost -p ${N2_PORT} -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (1, 'Hello from n2!');\""
 
 explain "Read it back from n1 -- it should be there via Spock replication:"
 
-prompt_run "PGPASSWORD=password psql -h localhost -p 6432 -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+prompt_run "PGPASSWORD=password psql -h localhost -p ${N1_PORT} -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
 explain "Now write on n3 and read from n1:"
 
-prompt_run "PGPASSWORD=password psql -h localhost -p 6434 -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (2, 'Hello from n3!');\""
+prompt_run "PGPASSWORD=password psql -h localhost -p ${N3_PORT} -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (2, 'Hello from n3!');\""
 
-prompt_run "PGPASSWORD=password psql -h localhost -p 6432 -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+prompt_run "PGPASSWORD=password psql -h localhost -p ${N1_PORT} -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
 # ── Completion ───────────────────────────────────────────────────────────────
 
