@@ -36,7 +36,14 @@ ensure_docker() {
 ensure_swarm() {
   if ! docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q "active"; then
     info "Initializing Docker Swarm..."
-    docker swarm init 2>/dev/null || true
+    # Use the default-route IPv4 address to avoid multi-address errors
+    local advertise_addr
+    advertise_addr=$(ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || true)
+    if [[ -n "$advertise_addr" ]]; then
+      docker swarm init --advertise-addr "$advertise_addr" 2>/dev/null || true
+    else
+      docker swarm init 2>/dev/null || true
+    fi
   fi
 }
 
@@ -66,7 +73,7 @@ wait_for_healthy() {
   start_spinner "Waiting for Control Plane API..."
   local retries=30
   while [[ "$retries" -gt 0 ]]; do
-    if curl -sf "http://localhost:${CP_PORT}/v1/cluster/init" >/dev/null 2>&1; then
+    if curl -sf "http://localhost:${CP_PORT}/v1/version" >/dev/null 2>&1; then
       stop_spinner
       info "Control Plane running on http://localhost:${CP_PORT}"
       return 0
