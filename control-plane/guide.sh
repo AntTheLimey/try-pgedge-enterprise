@@ -293,15 +293,17 @@ explain "Active-active means every node accepts reads and writes. If a node"
 explain "goes down, the others keep working -- and Control Plane automatically"
 explain "detects the failure and recovers the node."
 explain ""
-explain "Let's prove it. We'll stop n2, write data while it's down, and then"
-explain "watch Control Plane bring it back with all the data intact."
+explain "Let's prove it. We'll kill n2, write data while it's down, and watch"
+explain "Control Plane bring it back with all the data intact."
 explain ""
-explain "Make sure you have ${BOLD}watch docker ps${RESET} running in a second terminal so"
-explain "you can see what happens."
+explain "${BOLD}Watch carefully${RESET} -- CP recovers nodes so fast that the script has to"
+explain "kill n2 and run the SQL commands immediately before it comes back up."
+explain ""
+explain "Make sure you have ${BOLD}watch docker ps${RESET} running in a second terminal."
 
 prompt_continue
 
-explain "Stopping n2's container..."
+explain "Killing n2 and immediately writing data while it's down..."
 echo ""
 
 N2_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n2-" | head -1)
@@ -313,12 +315,20 @@ else
 fi
 
 echo ""
-explain "n2 is down. Let's write on n1 and read from n3 -- they should still work:"
+explain "n2 is down. Writing on n1 and reading from n3 before CP can recover it..."
+echo ""
 
-prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (3, 'Written while n2 is down!');\""
+N1_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n1-" | head -1)
+N3_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n3-" | head -1)
 
-prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n3-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+show_cmd "docker exec $N1_CONTAINER psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (3, 'Written while n2 is down!');\""
+docker exec "$N1_CONTAINER" psql -U admin "${DB_ID}" -c "INSERT INTO example (id, data) VALUES (3, 'Written while n2 is down!');"
+echo ""
 
+show_cmd "docker exec $N3_CONTAINER psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+docker exec "$N3_CONTAINER" psql -U admin "${DB_ID}" -c "SELECT * FROM example;"
+
+echo ""
 info "The cluster kept working with a node down."
 echo ""
 explain "Now watch your second terminal. Control Plane detected that n2 went"
