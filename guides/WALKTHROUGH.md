@@ -6,9 +6,9 @@ multi-master replication, all orchestrated by pgEdge Control Plane.
 ## How to use this guide
 
 **Option A -- Runme (recommended):** Click the **Run** button on each
-code block below. Install the
-[Runme extension](https://marketplace.visualstudio.com/items?itemName=stateful.runme)
-if you don't have it.
+code block below. Runme is pre-installed in GitHub Codespaces. If you
+are running locally, install the
+[Runme extension](https://marketplace.visualstudio.com/items?itemName=stateful.runme).
 
 **Option B -- Terminal:** Run the interactive guide instead:
 
@@ -48,6 +48,11 @@ echo "Data directory ready: ~/pgedge/control-plane"
 
 ### Pull and start the Control Plane container
 
+This pulls the Control Plane image from the GitHub container registry
+and starts it with host networking. The Docker socket is mounted so
+that Control Plane can create and manage Postgres containers on your
+behalf.
+
 ```bash
 docker pull ghcr.io/pgedge/control-plane
 docker run --detach \
@@ -59,13 +64,6 @@ docker run --detach \
     --name host-1 \
     ghcr.io/pgedge/control-plane \
     run
-```
-
-### Wait for the API
-
-The API starts on port 3000. This block polls until it responds:
-
-```bash
 echo "Waiting for Control Plane API..."
 until curl -sf http://localhost:3000/v1/version >/dev/null 2>&1; do
   sleep 2
@@ -75,16 +73,14 @@ echo "Control Plane is ready!"
 
 ### Initialize the cluster
 
-Initializing the cluster returns a **bearer token** that authenticates
-all subsequent API calls (creating databases, checking status, cleanup).
-The token is saved to `/tmp/pgedge-env` so each Runme code block can
-source it:
+Cluster initialization tells Control Plane to set up its internal
+state -- registering this host, initializing the metadata store, and
+preparing to accept database definitions. This is a one-time
+operation:
 
 ```bash
-RESPONSE=$(curl -sf http://localhost:3000/v1/cluster/init)
-CP_TOKEN=$(echo "$RESPONSE" | jq -r '.token')
-echo "CP_TOKEN=$CP_TOKEN" > /tmp/pgedge-env
-echo "Cluster initialized. Token saved to /tmp/pgedge-env"
+curl -sf http://localhost:3000/v1/cluster/init
+echo "Cluster initialized."
 ```
 
 ---
@@ -92,8 +88,9 @@ echo "Cluster initialized. Token saved to /tmp/pgedge-env"
 ## Step 2: Create a Distributed Database
 
 Control Plane uses a declarative model. You describe the database you
-want -- name, users, and nodes -- and Control Plane handles the rest. Spock
-multi-master replication is configured automatically between all nodes.
+want -- name, users, and nodes -- and Control Plane handles the rest.
+Spock multi-master replication is configured automatically between all
+nodes.
 
 ### Create the database
 
@@ -106,9 +103,7 @@ node.
 > for the rest of the demo.
 
 ```bash
-source /tmp/pgedge-env
 curl -s -X POST http://localhost:3000/v1/databases \
-    -H "Authorization: Bearer $CP_TOKEN" \
     -H "Content-Type: application/json" \
     --data '{
         "id": "example",
@@ -140,10 +135,9 @@ Postgres image and spinning up three containers in the background.
 Database creation is asynchronous. Poll until the state is `available`:
 
 ```bash
-source /tmp/pgedge-env
 echo "Waiting for database..."
 while true; do
-  STATE=$(curl -sf -H "Authorization: Bearer $CP_TOKEN" \
+  STATE=$(curl -sf \
     http://localhost:3000/v1/databases/example | jq -r '.state')
   echo "  State: $STATE"
   [ "$STATE" = "available" ] && break
@@ -218,24 +212,25 @@ Active-active means every node accepts reads and writes. If a node
 goes down, the others keep working -- and Control Plane automatically
 detects the failure and recovers the node.
 
-You will kill n2, write data while it is down, and watch Control
-Plane bring it back with all the data intact.
+You will halt n2 using Docker service scaling, write data while it is
+down, then bring it back and verify Spock catches everything up.
 
-> **Important:** Control Plane recovers nodes fast. Run the next few
-> blocks quickly in sequence to see the recovery in action. Make sure
-> you have `watch docker ps` running in a second terminal.
+### Scale n2 to 0
 
-### Kill n2
+Use Docker service scaling to cleanly halt the n2 container. This
+prevents Control Plane from auto-recovering the node while you work
+through the remaining steps:
 
 ```bash
-docker stop $(docker ps --format '{{.Names}}' \
-    | grep 'postgres-example-n2-' | head -1)
-echo "Node n2 stopped."
+docker service scale \
+  $(docker service ls \
+      --filter label=pgedge.component=postgres \
+      --filter label=pgedge.node.name=n2 \
+      --format '{{ .Name }}')=0
+echo "Node n2 scaled to 0."
 ```
 
 ### Write on n1 while n2 is down
-
-Run this immediately after stopping n2:
 
 ```bash
 PGPASSWORD=password psql -h localhost -p 5432 -U admin example \
@@ -251,14 +246,23 @@ PGPASSWORD=password psql -h localhost -p 5434 -U admin example \
 
 The cluster kept working with a node down.
 
-### Wait for Control Plane to recover n2
-
-Control Plane detected that n2 went down and is automatically
-recovering it. Watch your second terminal to see the container
-reappear:
+### Scale n2 back to 1
 
 ```bash
-echo "Waiting for Control Plane to recover n2..."
+docker service scale \
+  $(docker service ls \
+      --filter label=pgedge.component=postgres \
+      --filter label=pgedge.node.name=n2 \
+      --format '{{ .Name }}')=1
+echo "Node n2 scaling back up."
+```
+
+### Wait for n2 to come back
+
+Poll until the n2 container appears and is ready:
+
+```bash
+echo "Waiting for n2 container..."
 until docker ps --format '{{.Names}}' \
     | grep -q 'postgres-example-n2-'; do
   sleep 3
@@ -278,45 +282,21 @@ PGPASSWORD=password psql -h localhost -p 5433 -U admin example \
     -c "SELECT * FROM example;"
 ```
 
-The cluster survived a node failure, Control Plane auto-recovered n2,
-and Spock replication caught everything up. Zero data loss.
+The cluster survived a node failure, n2 came back via service
+scaling, and Spock replication caught everything up. Zero data loss.
 
 ---
 
 ## Cleanup
 
-Delete the database, stop Control Plane, leave Swarm, and remove
-data:
+If you are running in GitHub Codespaces, just delete the Codespace --
+no cleanup needed.
 
-```bash
-source /tmp/pgedge-env
+If you are running locally, stop everything and remove the data:
 
-# Delete the database via API
-curl -sf -X DELETE -H "Authorization: Bearer $CP_TOKEN" \
-    http://localhost:3000/v1/databases/example
-
-# Wait for deletion
-echo "Waiting for database deletion..."
-while curl -sf -H "Authorization: Bearer $CP_TOKEN" \
-    http://localhost:3000/v1/databases/example >/dev/null 2>&1; do
-  sleep 2
-done
-echo "Database deleted."
-
-# Stop Control Plane
-docker rm -f host-1
-
-# Leave Swarm
-docker swarm leave --force
-
-# Remove data
-sudo rm -rf ~/pgedge/control-plane
-
-# Clean up env file
-rm -f /tmp/pgedge-env
-
-echo "All cleaned up!"
-```
+    docker rm -f $(docker ps -aq --filter label=pgedge.database.id) host-1
+    docker swarm leave --force
+    sudo rm -rf ~/pgedge/control-plane
 
 ---
 
