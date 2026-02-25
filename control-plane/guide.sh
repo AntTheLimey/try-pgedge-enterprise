@@ -332,12 +332,12 @@ if [[ "${TRY_SCALE,,}" != "n"* ]]; then
   explain "Waiting for n4 to come up..."
   echo ""
 
-  start_spinner "Waiting for n4 to become available..."
+  start_spinner "Waiting for n4 to become available (this takes a couple of minutes)..."
   retries=60
-  n4_ready=false
+  n4_state=""
   while [[ "$retries" -gt 0 ]]; do
-    if docker ps --format '{{.Names}}' | grep -q "postgres-${DB_ID}-n4-"; then
-      n4_ready=true
+    n4_state=$(curl -sf -H "Authorization: Bearer ${CP_TOKEN}" "${CP_URL}/v1/databases/${DB_ID}" 2>/dev/null | grep -o '"state":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+    if [[ "$n4_state" == "available" ]]; then
       break
     fi
     sleep 3
@@ -345,14 +345,15 @@ if [[ "${TRY_SCALE,,}" != "n"* ]]; then
   done
   stop_spinner
 
-  if [[ "$n4_ready" == "true" ]]; then
-    info "Node n4 is running."
+  if [[ "$n4_state" == "available" ]]; then
+    info "Database scaled to 4 nodes."
     echo ""
     explain "Let's check -- the data we inserted earlier should already be on n4:"
 
     prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n4-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
   else
-    warn "n4 is still starting. Check 'docker ps' to monitor progress."
+    warn "Database is still being updated (state: ${n4_state:-unknown}). You can check progress with:"
+    show_cmd "curl -s -H 'Authorization: Bearer ${CP_TOKEN}' ${CP_URL}/v1/databases/${DB_ID} | jq .state"
   fi
 fi
 
