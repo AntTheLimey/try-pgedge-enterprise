@@ -162,12 +162,7 @@ else
 fi
 
 explain ""
-explain "Let's check the database status:"
-
-prompt_run "curl -s -H 'Authorization: Bearer ${CP_TOKEN}' ${CP_URL}/v1/databases/${DB_ID} | jq '{state: .state, nodes: [.spec.nodes[].name]}'"
-
-explain ""
-explain "Connect to one of the nodes:"
+explain "Let's connect to one of the nodes:"
 
 prompt_run "PGPASSWORD=password psql -h localhost -p ${N1_PORT} -U admin ${DB_ID} -c \"SELECT version();\""
 
