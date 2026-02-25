@@ -194,6 +194,11 @@ header "Step 2: Create a Distributed Database"
 explain "Control Plane uses a declarative model. You describe the database you"
 explain "want -- name, users, and nodes -- and CP handles the rest. Spock"
 explain "multi-master replication is configured automatically between all nodes."
+echo ""
+explain "This will create a 3-node database. It takes a minute or two while CP"
+explain "pulls the Postgres image and starts each node."
+echo ""
+explain "${DIM}Tip: open a second terminal and run 'watch docker ps' to see containers spin up${RESET}"
 
 prompt_run "curl -s -X POST ${CP_URL}/v1/databases \\
     -H 'Authorization: Bearer ${CP_TOKEN}' \\
@@ -218,9 +223,8 @@ prompt_run "curl -s -X POST ${CP_URL}/v1/databases \\
         }
     }'"
 
-explain "Database creation is asynchronous. Let's poll until it's ready..."
-echo ""
-explain "${DIM}Tip: open a second terminal and run 'watch docker ps' to see containers spin up${RESET}"
+explain "The API returned a task confirming the database is being created."
+explain "CP is now pulling the Postgres image and starting 3 nodes."
 echo ""
 
 start_spinner "Waiting for database to become available..."
@@ -243,10 +247,15 @@ else
   prompt_continue
 fi
 
-explain ""
-explain "Let's connect to one of the nodes:"
+# Helper: find a node's container name by node name (e.g. "n1")
+node_container() {
+  docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-${1}-" | head -1
+}
 
-prompt_run "PGPASSWORD=password psql -h localhost -p ${N1_PORT} -U admin ${DB_ID} -c \"SELECT version();\""
+explain ""
+explain "Let's connect to n1 using psql inside the container:"
+
+prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"SELECT version();\""
 
 prompt_continue
 
@@ -259,21 +268,21 @@ explain "accepts writes and changes propagate automatically."
 explain ""
 explain "Let's prove it. First, create a table on n1:"
 
-prompt_run "PGPASSWORD=password psql -h localhost -p ${N1_PORT} -U admin ${DB_ID} -c \"CREATE TABLE example (id int primary key, data text);\""
+prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"CREATE TABLE example (id int primary key, data text);\""
 
 explain "Insert a row on n2:"
 
-prompt_run "PGPASSWORD=password psql -h localhost -p ${N2_PORT} -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (1, 'Hello from n2!');\""
+prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n2-) psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (1, 'Hello from n2!');\""
 
 explain "Read it back from n1 -- it should be there via Spock replication:"
 
-prompt_run "PGPASSWORD=password psql -h localhost -p ${N1_PORT} -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
 explain "Now write on n3 and read from n1:"
 
-prompt_run "PGPASSWORD=password psql -h localhost -p ${N3_PORT} -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (2, 'Hello from n3!');\""
+prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n3-) psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (2, 'Hello from n3!');\""
 
-prompt_run "PGPASSWORD=password psql -h localhost -p ${N1_PORT} -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
 # ── Completion ───────────────────────────────────────────────────────────────
 
