@@ -89,6 +89,7 @@ explain ""
 explain "  1. Start Control Plane"
 explain "  2. Create a distributed database"
 explain "  3. Verify multi-master replication"
+explain "  4. Prove automatic recovery from node failure"
 explain ""
 explain "You'll go from zero to active-active replication in minutes."
 
@@ -284,123 +285,80 @@ prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_
 
 prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
-# ── Step 4: Scale Out (Optional) ─────────────────────────────────────────────
+# ── Step 4: Resilience ───────────────────────────────────────────────────────
 
-header "Step 4: Scale Out (Optional)"
-
-explain "Control Plane makes it easy to add nodes to a running database."
-explain "One API call adds a 4th node, and CP automatically replicates all"
-explain "existing data to it."
-echo ""
-
-read -rp "  Try it? (Y/n) " TRY_SCALE </dev/tty
-echo ""
-
-if [[ "${TRY_SCALE,,}" != "n"* ]]; then
-  # Pick a free port for n4
-  N4_PORT=$((N3_PORT + 1))
-  while port_in_use "$N4_PORT"; do
-    N4_PORT=$((N4_PORT + 1))
-  done
-
-  explain "Adding node n4 on port ${N4_PORT}. This sends the full database spec"
-  explain "with the new node included -- CP handles the rest."
-
-  prompt_run "curl -s -X POST ${CP_URL}/v1/databases/${DB_ID} \\
-    -H 'Authorization: Bearer ${CP_TOKEN}' \\
-    -H 'Content-Type: application/json' \\
-    --data '{
-        \"spec\": {
-            \"database_name\": \"${DB_ID}\",
-            \"database_users\": [
-                {
-                    \"username\": \"admin\",
-                    \"password\": \"password\",
-                    \"db_owner\": true,
-                    \"attributes\": [\"SUPERUSER\", \"LOGIN\"]
-                }
-            ],
-            \"nodes\": [
-                { \"name\": \"n1\", \"port\": ${N1_PORT}, \"host_ids\": [\"host-1\"] },
-                { \"name\": \"n2\", \"port\": ${N2_PORT}, \"host_ids\": [\"host-1\"] },
-                { \"name\": \"n3\", \"port\": ${N3_PORT}, \"host_ids\": [\"host-1\"] },
-                { \"name\": \"n4\", \"port\": ${N4_PORT}, \"host_ids\": [\"host-1\"], \"source_node\": \"n1\" }
-            ]
-        }
-    }'"
-
-  explain "Waiting for n4 to come up..."
-  echo ""
-
-  start_spinner "Waiting for n4 to become available (this takes a couple of minutes)..."
-  retries=60
-  n4_state=""
-  while [[ "$retries" -gt 0 ]]; do
-    n4_state=$(curl -sf -H "Authorization: Bearer ${CP_TOKEN}" "${CP_URL}/v1/databases/${DB_ID}" 2>/dev/null | grep -o '"state":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
-    if [[ "$n4_state" == "available" ]]; then
-      break
-    fi
-    sleep 3
-    retries=$((retries - 1))
-  done
-  stop_spinner
-
-  if [[ "$n4_state" == "available" ]]; then
-    info "Database scaled to 4 nodes."
-    echo ""
-    explain "Let's check -- the data we inserted earlier should already be on n4:"
-
-    prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n4-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
-  else
-    warn "Database is still being updated (state: ${n4_state:-unknown}). You can check progress with:"
-    show_cmd "curl -s -H 'Authorization: Bearer ${CP_TOKEN}' ${CP_URL}/v1/databases/${DB_ID} | jq .state"
-  fi
-fi
-
-# ── Step 5: Resilience (Optional) ────────────────────────────────────────────
-
-header "Step 5: Resilience (Optional)"
+header "Step 4: Resilience"
 
 explain "Active-active means every node accepts reads and writes. If a node"
-explain "goes down, the others keep working. Let's prove it by killing n2."
+explain "goes down, the others keep working -- and Control Plane automatically"
+explain "detects the failure and recovers the node."
+explain ""
+explain "Let's prove it. We'll stop n2, write data while it's down, and then"
+explain "watch Control Plane bring it back with all the data intact."
+explain ""
+explain "Make sure you have ${BOLD}watch docker ps${RESET} running in a second terminal so"
+explain "you can see what happens."
+
+prompt_continue
+
+explain "Stopping n2's container..."
 echo ""
 
-read -rp "  Try it? (Y/n) " TRY_RESILIENCE </dev/tty
+N2_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n2-" | head -1)
+if [[ -n "$N2_CONTAINER" ]]; then
+  docker stop "$N2_CONTAINER" >/dev/null 2>&1
+  info "Node n2 stopped."
+else
+  warn "Could not find n2 container."
+fi
+
+echo ""
+explain "n2 is down. Let's write on n1 and read from n3 -- they should still work:"
+
+prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (3, 'Written while n2 is down!');\""
+
+prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n3-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+
+info "The cluster kept working with a node down."
+echo ""
+explain "Now watch your second terminal. Control Plane detected that n2 went"
+explain "down and is automatically recovering it."
 echo ""
 
-if [[ "${TRY_RESILIENCE,,}" != "n"* ]]; then
-  explain "Stopping n2's container..."
-  echo ""
-
-  N2_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n2-" | head -1)
-  if [[ -n "$N2_CONTAINER" ]]; then
-    docker stop "$N2_CONTAINER" >/dev/null 2>&1
-    info "Node n2 stopped."
-  else
-    warn "Could not find n2 container."
+start_spinner "Waiting for Control Plane to recover n2..."
+retries=60
+while [[ "$retries" -gt 0 ]]; do
+  if docker ps --format '{{.Names}}' | grep -q "postgres-${DB_ID}-n2-"; then
+    break
   fi
+  sleep 3
+  retries=$((retries - 1))
+done
+stop_spinner
 
-  echo ""
-  explain "n2 is down. Let's write on n1 and read from n3 -- they should still work:"
+if [[ "$retries" -eq 0 ]]; then
+  warn "n2 did not come back within 3 minutes. You can check status with:"
+  show_cmd "docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n2-"
+else
+  info "n2 is back! Waiting a few seconds for replication to sync..."
+  sleep 5
 
-  prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (3, 'Written while n2 is down!');\""
+  explain ""
+  explain "Let's read from n2. Everything should be there -- including the row"
+  explain "that was written while n2 was down:"
 
-  prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n3-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+  prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n2-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
-  info "The cluster kept working with a node down."
-  echo ""
-  explain "In a production environment, Control Plane would automatically recover n2."
-  explain "For this demo, you can restart it manually:"
-  echo ""
-  explain "  ${DIM}docker start ${N2_CONTAINER}${RESET}"
+  info "The cluster survived a node failure, Control Plane auto-recovered n2,"
+  info "and Spock replication caught everything up. Zero data loss."
 fi
 
 # ── Completion ───────────────────────────────────────────────────────────────
 
 header "Done!"
 
-info "You've created a distributed Postgres database with multi-master"
-info "replication, scaled it out, and proven it survives node failure --"
+info "You've created a distributed Postgres database, verified multi-master"
+info "replication, and proven automatic recovery from node failure --"
 info "all through the Control Plane API."
 echo ""
 explain "What's next:"
