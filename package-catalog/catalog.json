@@ -24,25 +24,25 @@
         {
           "name": "PostgreSQL",
           "description": "pgEdge-patched PostgreSQL database engine",
-          "pg_versions": ["15", "16", "17", "18"],
+          "pg_versions": ["16", "17", "18"],
           "included_in": ["full", "minimal"]
         },
         {
           "name": "Spock 5.0",
           "description": "Multi-master active-active logical replication",
-          "pg_versions": ["15", "16", "17"],
+          "pg_versions": ["16", "17", "18"],
           "included_in": ["full", "minimal"]
         },
         {
           "name": "lolor",
           "description": "Large object logical replication support",
-          "pg_versions": ["15", "16", "17"],
+          "pg_versions": ["16", "17", "18"],
           "included_in": ["full", "minimal"]
         },
         {
           "name": "Snowflake",
           "description": "Distributed sequence ID generation",
-          "pg_versions": ["15", "16", "17"],
+          "pg_versions": ["16", "17", "18"],
           "included_in": ["full", "minimal"]
         }
       ]
@@ -53,37 +53,126 @@
         {
           "name": "pgVector",
           "description": "Vector similarity search for AI embeddings",
-          "pg_versions": ["15", "16", "17"],
+          "pg_versions": ["16", "17", "18"],
           "included_in": ["full", "minimal"]
+        },
+        {
+          "name": "Vectorizer",
+          "description": "Automated vector embedding generation",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full"]
+        },
+        {
+          "name": "pg_vectorize",
+          "description": "SQL-level vectorization functions",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full"]
+        },
+        {
+          "name": "pg_tokenizer",
+          "description": "Text tokenization for search and AI",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full"]
+        },
+        {
+          "name": "vchord_bm25",
+          "description": "BM25 ranking for full-text vector search",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full"]
         },
         {
           "name": "MCP Server",
           "description": "Model Context Protocol server for LLM-database integration",
-          "pg_versions": ["17"],
+          "pg_versions": ["all"],
           "included_in": ["full"]
         },
         {
           "name": "RAG Server",
           "description": "Retrieval-augmented generation server",
-          "pg_versions": ["17"],
-          "included_in": ["full"]
-        },
-        {
-          "name": "Vectorizer",
-          "description": "Automated vector embedding generation",
-          "pg_versions": ["17"],
+          "pg_versions": ["all"],
           "included_in": ["full"]
         },
         {
           "name": "Anonymizer",
           "description": "Data anonymization and masking for AI pipelines",
-          "pg_versions": ["16", "17"],
+          "pg_versions": ["all"],
           "included_in": ["full"]
         },
         {
           "name": "Docloader",
           "description": "Document ingestion and chunking for RAG workflows",
-          "pg_versions": ["17"],
+          "pg_versions": ["all"],
+          "included_in": ["full"]
+        },
+        {
+          "name": "NLA",
+          "description": "Natural language API — CLI and web interface",
+          "pg_versions": ["all"],
+          "included_in": ["full"]
+        }
+      ]
+    },
+    {
+      "name": "Extensions",
+      "packages": [
+        {
+          "name": "PostGIS",
+          "description": "Geospatial data types, functions, and indexing",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full", "minimal"]
+        },
+        {
+          "name": "pgAudit",
+          "description": "Detailed session and object audit logging",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full", "minimal"]
+        },
+        {
+          "name": "pg_cron",
+          "description": "Job scheduler for running periodic SQL tasks",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full"]
+        },
+        {
+          "name": "pgmq",
+          "description": "Lightweight message queue built on PostgreSQL",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full"]
+        },
+        {
+          "name": "pg_stat_monitor",
+          "description": "Query performance monitoring and statistics",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full"]
+        },
+        {
+          "name": "pldebugger",
+          "description": "PL/pgSQL interactive debugger",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full"]
+        },
+        {
+          "name": "system_stats",
+          "description": "System-level performance statistics",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full"]
+        },
+        {
+          "name": "pl/Perl",
+          "description": "Perl procedural language for PostgreSQL",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full"]
+        },
+        {
+          "name": "pl/Python",
+          "description": "Python procedural language for PostgreSQL",
+          "pg_versions": ["16", "17", "18"],
+          "included_in": ["full"]
+        },
+        {
+          "name": "pl/TCL",
+          "description": "TCL procedural language for PostgreSQL",
+          "pg_versions": ["16", "17", "18"],
           "included_in": ["full"]
         }
       ]
@@ -110,86 +199,16 @@
           "included_in": ["full"]
         },
         {
-          "name": "ACE",
-          "description": "Assessment, comparison, and evaluation tool for schema/data validation",
+          "name": "PostgREST",
+          "description": "RESTful API server for PostgreSQL",
           "pg_versions": ["all"],
-          "included_in": ["full"]
+          "included_in": []
         },
         {
-          "name": "Radar",
-          "description": "Replication monitoring and health dashboard",
+          "name": "psycopg2",
+          "description": "Python-PostgreSQL database adapter",
           "pg_versions": ["all"],
-          "included_in": ["full"]
-        }
-      ]
-    },
-    {
-      "name": "Extensions",
-      "packages": [
-        {
-          "name": "PostGIS",
-          "description": "Geospatial data types, functions, and indexing",
-          "pg_versions": ["15", "16", "17"],
-          "included_in": ["full", "minimal"]
-        },
-        {
-          "name": "pgAudit",
-          "description": "Detailed session and object audit logging",
-          "pg_versions": ["15", "16", "17"],
-          "included_in": ["full", "minimal"]
-        },
-        {
-          "name": "pg_cron",
-          "description": "Job scheduler for running periodic SQL tasks",
-          "pg_versions": ["15", "16", "17"],
-          "included_in": ["full"]
-        },
-        {
-          "name": "Orafce",
-          "description": "Oracle compatibility functions and packages",
-          "pg_versions": ["15", "16", "17"],
-          "included_in": ["full"]
-        },
-        {
-          "name": "TimescaleDB",
-          "description": "Time-series data optimizations and hypertables",
-          "pg_versions": ["15", "16", "17"],
-          "included_in": ["full"]
-        },
-        {
-          "name": "pg_hint_plan",
-          "description": "Query plan hinting for manual optimization",
-          "pg_versions": ["15", "16", "17"],
-          "included_in": ["full"]
-        },
-        {
-          "name": "PLV8",
-          "description": "JavaScript procedural language (V8 engine)",
-          "pg_versions": ["15", "16", "17"],
-          "included_in": ["full"]
-        },
-        {
-          "name": "set_user",
-          "description": "Privilege escalation auditing and control",
-          "pg_versions": ["15", "16", "17"],
-          "included_in": ["full"]
-        }
-      ]
-    },
-    {
-      "name": "High Availability",
-      "packages": [
-        {
-          "name": "Patroni",
-          "description": "Automatic failover and HA management for PostgreSQL",
-          "pg_versions": ["all"],
-          "included_in": ["full"]
-        },
-        {
-          "name": "etcd",
-          "description": "Distributed key-value store for Patroni consensus",
-          "pg_versions": ["all"],
-          "included_in": ["full"]
+          "included_in": []
         }
       ]
     }
@@ -201,10 +220,7 @@
       "version": "9",
       "pkg_manager": "dnf",
       "architectures": ["x86_64", "aarch64"],
-      "prerequisites": [
-        "sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm",
-        "sudo dnf config-manager --set-enabled crb"
-      ],
+      "prerequisites": [],
       "repo_install": "sudo dnf install -y https://dnf.pgedge.com/reporpm/pgedge-release-latest.noarch.rpm",
       "install_pattern": "sudo dnf install -y {package}",
       "init_pattern": "sudo /usr/pgsql-{ver}/bin/postgresql-{ver}-setup initdb",
@@ -216,10 +232,7 @@
       "version": "10",
       "pkg_manager": "dnf",
       "architectures": ["x86_64", "aarch64"],
-      "prerequisites": [
-        "sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm",
-        "sudo dnf config-manager --set-enabled crb"
-      ],
+      "prerequisites": [],
       "repo_install": "sudo dnf install -y https://dnf.pgedge.com/reporpm/pgedge-release-latest.noarch.rpm",
       "install_pattern": "sudo dnf install -y {package}",
       "init_pattern": "sudo /usr/pgsql-{ver}/bin/postgresql-{ver}-setup initdb",
