@@ -257,6 +257,10 @@ explain "accepts writes and changes propagate automatically."
 explain ""
 explain "Let's prove it. First, create a table on n1:"
 
+# Clean up any leftover data from a previous run
+docker exec "$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n1-")" \
+  psql -U admin "${DB_ID}" -c "DROP TABLE IF EXISTS example;" >/dev/null 2>&1 || true
+
 prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"CREATE TABLE example (id int primary key, data text);\""
 
 explain "Insert a row on n2:"

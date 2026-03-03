@@ -161,6 +161,17 @@ PGPASSWORD=password psql -h localhost -p 5432 -U admin example \
 All three nodes have Spock bi-directional replication. Every node
 accepts writes and changes propagate automatically.
 
+### Clean up from previous runs
+
+Drop the demo table if it exists from a previous run. This is a no-op
+the first time:
+
+```bash
+PGPASSWORD=password psql -h localhost -p 5432 -U admin example \
+    -c "DROP TABLE IF EXISTS example;" 2>/dev/null || true
+echo "Ready."
+```
+
 ### Create a table on n1
 
 ```bash
