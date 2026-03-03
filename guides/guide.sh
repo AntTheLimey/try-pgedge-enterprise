@@ -244,7 +244,7 @@ fi
 explain ""
 explain "Let's connect to n1 using psql inside the container:"
 
-prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"SELECT version();\""
+prompt_run "docker exec \$(docker ps --filter label=pgedge.node.name=n1 --format '{{.Names}}') psql -U admin ${DB_ID} -c \"SELECT version();\""
 
 prompt_continue
 
@@ -258,24 +258,24 @@ explain ""
 explain "Let's prove it. First, create a table on n1:"
 
 # Clean up any leftover data from a previous run
-docker exec "$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n1-")" \
+docker exec "$(docker ps --filter label=pgedge.node.name=n1 --format '{{.Names}}')" \
   psql -U admin "${DB_ID}" -c "DROP TABLE IF EXISTS example;" >/dev/null 2>&1 || true
 
-prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"CREATE TABLE example (id int primary key, data text);\""
+prompt_run "docker exec \$(docker ps --filter label=pgedge.node.name=n1 --format '{{.Names}}') psql -U admin ${DB_ID} -c \"CREATE TABLE example (id int primary key, data text);\""
 
 explain "Insert a row on n2:"
 
-prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n2-) psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (1, 'Hello from n2!');\""
+prompt_run "docker exec \$(docker ps --filter label=pgedge.node.name=n2 --format '{{.Names}}') psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (1, 'Hello from n2!');\""
 
 explain "Read it back from n1 -- it should be there via Spock replication:"
 
-prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+prompt_run "docker exec \$(docker ps --filter label=pgedge.node.name=n1 --format '{{.Names}}') psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
 explain "Now write on n3 and read from n1:"
 
-prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n3-) psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (2, 'Hello from n3!');\""
+prompt_run "docker exec \$(docker ps --filter label=pgedge.node.name=n3 --format '{{.Names}}') psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (2, 'Hello from n3!');\""
 
-prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n1-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+prompt_run "docker exec \$(docker ps --filter label=pgedge.node.name=n1 --format '{{.Names}}') psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
 info "Both rows replicated to n1 -- every node can read every other node's writes."
 
@@ -304,14 +304,11 @@ prompt_run "N2_SERVICE=\$(docker service ls --filter label=pgedge.component=post
 
 explain "Write on n1 while n2 is down:"
 
-N1_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n1-" | head -1)
-N3_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n3-" | head -1)
-
-prompt_run "docker exec $N1_CONTAINER psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (3, 'Written while n2 is down!');\""
+prompt_run "docker exec \$(docker ps --filter label=pgedge.node.name=n1 --format '{{.Names}}') psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (3, 'Written while n2 is down!');\""
 
 explain "Read from n3 to confirm the cluster still works:"
 
-prompt_run "docker exec $N3_CONTAINER psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+prompt_run "docker exec \$(docker ps --filter label=pgedge.node.name=n3 --format '{{.Names}}') psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
 info "The cluster kept working with a node down."
 echo ""
@@ -322,7 +319,7 @@ prompt_run "N2_SERVICE=\$(docker service ls --filter label=pgedge.component=post
 start_spinner "Waiting for n2 container to come back..."
 retries=60
 while [[ "$retries" -gt 0 ]]; do
-  if docker ps --format '{{.Names}}' | grep -q "postgres-${DB_ID}-n2-"; then
+  if docker ps --filter label=pgedge.node.name=n2 --format '{{.Names}}' | grep -q .; then
     break
   fi
   sleep 3
@@ -332,7 +329,7 @@ stop_spinner
 
 if [[ "$retries" -eq 0 ]]; then
   warn "n2 did not come back within 3 minutes. You can check status with:"
-  show_cmd "docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n2-"
+  show_cmd "docker ps --filter label=pgedge.node.name=n2 --format '{{.Names}}'"
 else
   info "n2 is back! Waiting a few seconds for replication to sync..."
   sleep 5
@@ -341,7 +338,7 @@ else
   explain "Let's read from n2. Everything should be there -- including the row"
   explain "that was written while n2 was down:"
 
-  prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n2-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+  prompt_run "docker exec \$(docker ps --filter label=pgedge.node.name=n2 --format '{{.Names}}') psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
   info "The cluster survived a node failure, n2 came back via service"
   info "scaling, and Spock replication caught everything up. Zero data loss."
