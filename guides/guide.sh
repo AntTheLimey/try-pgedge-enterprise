@@ -173,18 +173,12 @@ else
   info "Control Plane running on ${CP_URL}"
 fi
 
-# Initialize cluster and get auth token
-init_response=$(curl -sf "${CP_URL}/v1/cluster/init" 2>/dev/null || true)
-if [[ -z "$init_response" ]]; then
-  error "Failed to initialize cluster."
-  exit 1
+# Initialize cluster (idempotent -- safe to re-run)
+if curl -sf "${CP_URL}/v1/cluster/init" >/dev/null 2>&1; then
+  info "Cluster initialized."
+else
+  info "Cluster already initialized."
 fi
-CP_TOKEN=$(echo "$init_response" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-if [[ -z "$CP_TOKEN" ]]; then
-  error "Failed to retrieve auth token from cluster init."
-  exit 1
-fi
-info "Cluster initialized. You now have an authenticated API session to manage databases."
 
 prompt_continue
 
@@ -202,7 +196,6 @@ echo ""
 explain "${DIM}Tip: open a second terminal and run 'watch docker ps' -- you'll want this for the rest of the demo${RESET}"
 
 prompt_run "curl -s -X POST ${CP_URL}/v1/databases \\
-    -H 'Authorization: Bearer ${CP_TOKEN}' \\
     -H 'Content-Type: application/json' \\
     --data '{
         \"id\": \"${DB_ID}\",
@@ -231,7 +224,7 @@ echo ""
 start_spinner "Waiting for database to become available..."
 retries=60
 while [[ "$retries" -gt 0 ]]; do
-  state=$(curl -sf -H "Authorization: Bearer ${CP_TOKEN}" "${CP_URL}/v1/databases/${DB_ID}" 2>/dev/null | grep -o '"state":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+  state=$(curl -sf "${CP_URL}/v1/databases/${DB_ID}" 2>/dev/null | grep -o '"state":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
   if [[ "$state" == "available" ]]; then
     break
   fi
@@ -244,7 +237,7 @@ if [[ "$state" == "available" ]]; then
   info "Database '${DB_ID}' is available with 3 nodes (n1, n2, n3)"
 else
   warn "Database is still being created (state: ${state:-unknown}). You can check progress with:"
-  show_cmd "curl -s -H 'Authorization: Bearer ${CP_TOKEN}' ${CP_URL}/v1/databases/${DB_ID} | jq .state"
+  show_cmd "curl -s ${CP_URL}/v1/databases/${DB_ID} | jq .state"
   prompt_continue
 fi
 
