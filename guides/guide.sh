@@ -287,50 +287,42 @@ info "Both rows replicated to n1 -- every node can read every other node's write
 header "Step 4: Resilience"
 
 explain "Active-active means every node accepts reads and writes. If a node"
-explain "goes down, the others keep working -- and Control Plane automatically"
-explain "detects the failure and recovers the node."
+explain "goes down, the others keep working -- and when it comes back, Spock"
+explain "automatically catches it up."
 explain ""
-explain "Let's prove it. We'll kill n2, write data while it's down, and watch"
-explain "Control Plane bring it back with all the data intact."
+explain "Let's prove it. We'll halt n2 using Docker service scaling, write"
+explain "data while it's down, then bring it back and verify everything"
+explain "replicated."
 explain ""
-explain "${BOLD}Watch carefully${RESET} -- CP recovers nodes so fast that the script has to"
-explain "kill n2 and run the SQL commands immediately before it comes back up."
+explain "Scaling the service to 0 cleanly stops n2 and prevents Control Plane"
+explain "from auto-recovering it, so you can observe each step."
 explain ""
 explain "Make sure you have ${BOLD}watch docker ps${RESET} running in a second terminal."
 
 prompt_continue
 
-explain "Killing n2 and immediately writing data while it's down..."
-echo ""
+explain "Scale n2 to 0:"
 
-N2_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n2-" | head -1)
-if [[ -n "$N2_CONTAINER" ]]; then
-  docker stop "$N2_CONTAINER" >/dev/null 2>&1
-  info "Node n2 killed."
-else
-  warn "Could not find n2 container."
-fi
+prompt_run "N2_SERVICE=\$(docker service ls --filter label=pgedge.component=postgres --filter label=pgedge.node.name=n2 --format '{{ .Name }}') && docker service scale \"\$N2_SERVICE\"=0 && echo 'Node n2 scaled to 0.'"
 
-echo ""
+explain "Write on n1 while n2 is down:"
 
 N1_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n1-" | head -1)
 N3_CONTAINER=$(docker ps --format '{{.Names}}' | grep "postgres-${DB_ID}-n3-" | head -1)
 
-show_cmd "docker exec $N1_CONTAINER psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (3, 'Written while n2 is down!');\""
-docker exec "$N1_CONTAINER" psql -U admin "${DB_ID}" -c "INSERT INTO example (id, data) VALUES (3, 'Written while n2 is down!');"
-echo ""
+prompt_run "docker exec $N1_CONTAINER psql -U admin ${DB_ID} -c \"INSERT INTO example (id, data) VALUES (3, 'Written while n2 is down!');\""
 
-show_cmd "docker exec $N3_CONTAINER psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
-docker exec "$N3_CONTAINER" psql -U admin "${DB_ID}" -c "SELECT * FROM example;"
+explain "Read from n3 to confirm the cluster still works:"
 
-echo ""
+prompt_run "docker exec $N3_CONTAINER psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
+
 info "The cluster kept working with a node down."
 echo ""
-explain "Now watch your second terminal. Control Plane detected that n2 went"
-explain "down and is automatically recovering it."
-echo ""
+explain "Now let's bring n2 back by scaling the service to 1:"
 
-start_spinner "Waiting for Control Plane to recover n2..."
+prompt_run "N2_SERVICE=\$(docker service ls --filter label=pgedge.component=postgres --filter label=pgedge.node.name=n2 --format '{{ .Name }}') && docker service scale \"\$N2_SERVICE\"=1 && echo 'Node n2 scaling back up.'"
+
+start_spinner "Waiting for n2 container to come back..."
 retries=60
 while [[ "$retries" -gt 0 ]]; do
   if docker ps --format '{{.Names}}' | grep -q "postgres-${DB_ID}-n2-"; then
@@ -354,8 +346,8 @@ else
 
   prompt_run "docker exec \$(docker ps --format '{{.Names}}' | grep postgres-${DB_ID}-n2-) psql -U admin ${DB_ID} -c \"SELECT * FROM example;\""
 
-  info "The cluster survived a node failure, Control Plane auto-recovered n2,"
-  info "and Spock replication caught everything up. Zero data loss."
+  info "The cluster survived a node failure, n2 came back via service"
+  info "scaling, and Spock replication caught everything up. Zero data loss."
 fi
 
 # ── Completion ───────────────────────────────────────────────────────────────
